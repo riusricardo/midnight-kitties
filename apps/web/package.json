@@ -1,0 +1,31 @@
+{
+  "name": "@repo/web-app",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@repo/ui": "*",
+    "@types/node": "^24.0.3",
+    "@typescript-eslint/eslint-plugin": "^8.34.1",
+    "@typescript-eslint/parser": "^8.34.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/typescript-config": "*",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.2",
+    "@vitejs/plugin-react": "^4.0.0",
+    "eslint-plugin-react": "^7.37.5",
+    "node-stdlib-browser": "^1.3.1",
+    "eslint": "^9.28.0",
+    "typescript": "^5.8.3"
+  },
+  "scripts": {
+    "start": "http-server --port 8080 ./dist --proxy 'http://127.0.0.1:8080?'",
+    "build": "rm -rf ./dist && tsc && vite build --mode testnet && cp -r ../../packages/contracts/counter/dist/managed/counter/keys ./dist/keys && cp -r ../../packages/contracts/counter/dist/managed/counter/zkir ./dist/zkir",
+    "preview": "vite preview",
+    "lint": "eslint \"src/**/*.ts\""
+  }
+}

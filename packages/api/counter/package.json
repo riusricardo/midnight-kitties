@@ -1,0 +1,65 @@
+{
+  "name": "@repo/counter-api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "browser": {
+        "types": "./dist/browser-index.d.ts",
+        "import": "./dist/browser-index.js",
+        "require": "./dist/browser-index.js"
+      },
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },    
+    "./node-api": {
+      "types": "./dist/node/api.d.ts",
+      "import": "./dist/node/api.js",
+      "require": "./dist/node/api.js"
+    },
+    "./common-api": {
+      "types": "./dist/common/api.d.ts",
+      "import": "./dist/common/api.js",
+      "require": "./dist/common/api.js"
+    },
+    "./browser-api": {
+      "types": "./dist/browser/api.d.ts",
+      "import": "./dist/browser/api.js",
+      "require": "./dist/browser/api.js"
+    },
+    "./browser": {
+      "types": "./dist/browser/index.d.ts",
+      "import": "./dist/browser/index.js",
+      "require": "./dist/browser/index.js"
+    },
+    "./src/browser/env-browser.ts": "./src/browser/env-browser.ts",
+    "./dist/browser/env-browser": {
+      "types": "./dist/browser/env-browser.d.ts",
+      "import": "./dist/browser/env-browser.js",
+      "require": "./dist/browser/env-browser.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsc && cp ../../cli/standalone.yml dist/",
+    "test-api": "docker compose -f ../../cli/standalone.yml pull && DEBUG='testcontainers' vitest run",
+    "test-against-testnet": "RUN_ENV_TESTS=true TEST_ENV=testnet TEST_WALLET_SEED=692f140c1e8d527c7c7fca5beb9bbfe412a4f0a1ccca2e15f672352c579b68fb vitest run"
+  },
+  "dependencies": {
+    "@midnight-ntwrk/counter-contract": "*",
+    "vite-plugin-node-polyfills": "^0.23.0"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/typescript-config": "*",
+    "@types/node": "^22.15.29",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.8.3"
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": [
+    ".prettierrc.json"
+  ],
+  "tasks": {
+    "typecheck": {
+      "dependsOn": ["^build", "compact"],
+      "inputs": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.mts", "tsconfig.json"],
+      "outputs": []
+    },
+    "compact": {
+      "dependsOn": ["^build"],
+      "env": ["COMPACT_HOME"],
+      "inputs": ["src/**/*.compact"],
+      "outputs": ["src/managed/**", "src/gen/**", "gen/**"]
+    },
+    "build": {
+      "cache": false,
+      "dependsOn": ["^build", "compact", "typecheck"],
+      "inputs": ["src/**/*.ts", "src/**/*.mts", "src/**/*.tsx", "!src/**/*.test.ts", "!tests/**/*.ts", "tsconfig.json", "tsconfig.build.json", ".env"],
+      "outputs": ["dist/**"]
+    },
+    "lint": {
+      "dependsOn": ["compact", "^build", "typecheck"],
+      "inputs": ["src/**/*.ts", "src/**/*.mts", "src/**/*.tsx", ".eslintrc.cjs"]
+    },
+    "test": {
+      "dependsOn": ["^build", "compact", "typecheck"],
+      "inputs": ["src/**/*.ts", "src/**/*.mts", "src/**/*.tsx", "jest.config.ts", "tsconfig.json", "tsconfig.test.json", "test-compose.yml"],
+      "outputs": ["reports/**"]
+    },
+    "check": {
+      "dependsOn": ["build", "lint", "test"]
+    },
+    "test-api": {
+      "cache": false,
+      "persistent": true
+    },
+    "start": {
+      "cache": false,
+      "persistent": true,
+      "dependsOn": ["build"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}
