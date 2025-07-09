@@ -160,25 +160,27 @@ export class KittiesAPI implements DeployedKittiesAPI {
   async getKitty(kittyId: bigint): Promise<KittyData> {
     console.log(`Getting kitty ${kittyId}...`);
     // Use the contract call directly for read operations
-    const kitty = await this.deployedContract.callTx.getKitty(kittyId);
-    // Extract the result from the transaction - it should be the return value
+    const response = await this.deployedContract.callTx.getKitty(kittyId);
+    // Extract the result from the transaction response
+    const kitty = (response as any).private.result;
     return {
       id: kittyId,
-      dna: (kitty as any).dna,
-      gender: (kitty as any).gender,
-      owner: (kitty as any).owner,
-      price: (kitty as any).price,
-      forSale: (kitty as any).forSale,
-      generation: (kitty as any).generation,
+      dna: kitty.dna,
+      gender: kitty.gender,
+      owner: kitty.owner,
+      price: kitty.price,
+      forSale: kitty.forSale,
+      generation: kitty.generation,
     };
   }
 
   async getAllKittiesCount(): Promise<bigint> {
     console.log('Getting total kitties count...');
     // Use the contract call directly for read operations
-    const count = await this.deployedContract.callTx.getAllKittiesCount();
+    const response = await this.deployedContract.callTx.getAllKittiesCount();
+    const count = (response as any).private.result;
     console.log(`Total kitties: ${count}`);
-    return count as any;
+    return count;
   }
 
   async getKittiesForSale(): Promise<KittyListingData[]> {
@@ -246,14 +248,16 @@ export class KittiesAPI implements DeployedKittiesAPI {
 
   async balanceOf(owner: { bytes: Uint8Array }): Promise<bigint> {
     console.log(`Getting balance for owner ${toHex(owner.bytes)}...`);
-    const balance = await this.deployedContract.callTx.balanceOf(owner);
-    return balance as any;
+    const response = await this.deployedContract.callTx.balanceOf(owner);
+    const balance = (response as any).private.result;
+    return balance;
   }
 
   async ownerOf(tokenId: bigint): Promise<{ bytes: Uint8Array }> {
     console.log(`Getting owner of token ${tokenId}...`);
-    const owner = await this.deployedContract.callTx.ownerOf(tokenId);
-    return owner as any;
+    const response = await this.deployedContract.callTx.ownerOf(tokenId);
+    const owner = (response as any).private.result;
+    return owner;
   }
 
   async approve(params: NFTApprovalParams): Promise<void> {
@@ -264,8 +268,9 @@ export class KittiesAPI implements DeployedKittiesAPI {
 
   async getApproved(tokenId: bigint): Promise<{ bytes: Uint8Array }> {
     console.log(`Getting approved address for token ${tokenId}...`);
-    const approved = await this.deployedContract.callTx.getApproved(tokenId);
-    return approved as any;
+    const response = await this.deployedContract.callTx.getApproved(tokenId);
+    const approved = (response as any).private.result;
+    return approved;
   }
 
   async setApprovalForAll(params: NFTSetApprovalForAllParams): Promise<void> {
@@ -278,8 +283,9 @@ export class KittiesAPI implements DeployedKittiesAPI {
 
   async isApprovedForAll(owner: { bytes: Uint8Array }, operator: { bytes: Uint8Array }): Promise<boolean> {
     console.log(`Checking if ${toHex(operator.bytes)} is approved for all tokens of ${toHex(owner.bytes)}...`);
-    const isApproved = await this.deployedContract.callTx.isApprovedForAll(owner, operator);
-    return isApproved as any;
+    const response = await this.deployedContract.callTx.isApprovedForAll(owner, operator);
+    const isApproved = (response as any).private.result;
+    return isApproved;
   }
 
   async transfer(params: NFTTransferParams): Promise<void> {
