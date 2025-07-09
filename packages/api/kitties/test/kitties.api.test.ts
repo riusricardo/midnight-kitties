@@ -32,87 +32,9 @@ import { TestEnvironment } from './commons';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { NodeZkConfigProvider } from '@midnight-ntwrk/midnight-js-node-zk-config-provider';
 import { contractConfig, createLogger } from '@repo/kitties-api';
-import { ShieldedCoinPublicKey, MidnightBech32m } from '@midnight-ntwrk/wallet-sdk-address-format';
 
 const logDir = path.resolve(currentDir, '..', 'logs', 'tests', `${new Date().toISOString()}.log`);
 const logger = await createLogger(logDir);
-
-// Helper function to get wallet public key bytes from providers
-const getWalletPublicKeyBytes = (providers: KittiesProviders): Uint8Array => {
-  const coinPublicKey = providers.walletProvider.coinPublicKey;
-  
-  // If it's a Bech32m format string (starts with mn_shield-cpk_)
-  if (typeof coinPublicKey === 'string' && coinPublicKey.startsWith('mn_shield-cpk_')) {
-    try {
-      const bech32 = MidnightBech32m.parse(coinPublicKey);
-      const shieldedCoinPublicKey = ShieldedCoinPublicKey.codec.decode(null, bech32);
-      return new Uint8Array(shieldedCoinPublicKey.data);
-    } catch (error) {
-      console.error('Failed to decode Bech32m address:', error);
-      throw new Error(`Failed to decode Bech32m address: ${coinPublicKey}`);
-    }
-  }
-  
-  // If it's already a Uint8Array, ensure it's 32 bytes
-  if (coinPublicKey && typeof coinPublicKey === 'object' && (coinPublicKey as any) instanceof Uint8Array) {
-    const bytes = coinPublicKey as Uint8Array;
-    // If it's exactly 32 bytes, return it
-    if (bytes.length === 32) {
-      return bytes;
-    }
-    // If it's longer, take the first 32 bytes
-    if (bytes.length > 32) {
-      return bytes.slice(0, 32);
-    }
-    // If it's shorter, pad with zeros
-    const result = new Uint8Array(32);
-    result.set(bytes);
-    return result;
-  }
-
-  // If it's a regular hex string, convert from hex and ensure 32 bytes
-  if (typeof coinPublicKey === 'string') {
-    const hex = coinPublicKey.startsWith('0x') ? coinPublicKey.slice(2) : coinPublicKey;
-    const bytes = new Uint8Array(hex.length / 2);
-    for (let i = 0; i < hex.length; i += 2) {
-      bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
-    }
-    // Ensure exactly 32 bytes
-    const result = new Uint8Array(32);
-    result.set(bytes.slice(0, 32));
-    return result;
-  }
-
-  // If it's an object with toString method
-  if (coinPublicKey && typeof coinPublicKey === 'object' && typeof (coinPublicKey as any).toString === 'function') {
-    const str = String((coinPublicKey as any).toString());
-    
-    // Check if the toString result is Bech32m format
-    if (str.startsWith('mn_shield-cpk_')) {
-      try {
-        const bech32 = MidnightBech32m.parse(str);
-        const shieldedCoinPublicKey = ShieldedCoinPublicKey.codec.decode(null, bech32);
-        return new Uint8Array(shieldedCoinPublicKey.data);
-      } catch (error) {
-        console.error('Failed to decode Bech32m address from toString:', error);
-        throw new Error(`Failed to decode Bech32m address: ${str}`);
-      }
-    }
-    
-    // Otherwise treat as hex
-    const hex = str.replace(/^0x/, '');
-    const bytes = new Uint8Array(hex.length / 2);
-    for (let i = 0; i < hex.length; i += 2) {
-      bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
-    }
-    // Ensure exactly 32 bytes
-    const result = new Uint8Array(32);
-    result.set(bytes.slice(0, 32));
-    return result;
-  }
-
-  throw new Error('Unable to determine wallet public key format');
-};
 
 describe('API', () => {
   let testEnvironment: TestEnvironment;
@@ -177,10 +99,8 @@ describe('API', () => {
     const kittiesApi = await KittiesAPI.deploy(providers, {});
     expect(kittiesApi).not.toBeNull();
 
-    // Test Bech32m conversion
-    const walletBytes = { bytes: getWalletPublicKeyBytes(providers) };
-    console.log('Converted wallet bytes:', walletBytes.bytes);
-    console.log('Original coinPublicKey:', providers.walletProvider.coinPublicKey);
+    // Test address conversion via API
+    const walletBytes = kittiesApi.getWalletAddress();
 
     // Create first kitty
     await kittiesApi.createKitty();
@@ -189,15 +109,16 @@ describe('API', () => {
     const kitty1 = await kittiesApi.getKitty(BigInt(1));
     const actualOwner = kitty1.owner;
     
-    console.log('Actual owner from kitty:', actualOwner.bytes);
-    console.log('Converted wallet matches actual:', 
-      Buffer.from(walletBytes.bytes).equals(Buffer.from(actualOwner.bytes)));
-    
     // Use the converted wallet bytes to test getUserKitties
     const userKittiesAfterFirst = await kittiesApi.getUserKitties(walletBytes);
     expect(userKittiesAfterFirst.length).toBe(1);
     expect(userKittiesAfterFirst[0].id).toEqual(BigInt(1));
     expect(userKittiesAfterFirst[0].generation).toEqual(BigInt(0));
+
+    // Test the convenience method getMyKitties
+    const myKittiesAfterFirst = await kittiesApi.getMyKitties();
+    expect(myKittiesAfterFirst.length).toBe(1);
+    expect(myKittiesAfterFirst[0].id).toEqual(BigInt(1));
 
     // Create second kitty
     await kittiesApi.createKitty();
@@ -296,8 +217,8 @@ describe('API', () => {
     // Deploy a new contract for this test
     const kittiesApi = await KittiesAPI.deploy(providers, {});
     
-    // Get wallet address using proper Bech32m conversion
-    const walletBytes = { bytes: getWalletPublicKeyBytes(providers) };
+    // Get wallet address using API conversion
+    const walletBytes = kittiesApi.getWalletAddress();
     
     // Create a test address for ownership operations
     const testAddress = { bytes: new Uint8Array(32).fill(1) };
@@ -311,10 +232,6 @@ describe('API', () => {
 
     // Get the owner of the first kitty and verify it matches our wallet
     const owner = await kittiesApi.ownerOf(BigInt(1));
-    
-    console.log('Owner from contract:', owner.bytes);
-    console.log('Converted wallet bytes:', walletBytes.bytes);
-    console.log('Wallet coinPublicKey:', providers.walletProvider.coinPublicKey);
     
     expect(owner).toBeDefined();
     expect(owner.bytes).toBeInstanceOf(Uint8Array);

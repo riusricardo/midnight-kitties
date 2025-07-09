@@ -20,6 +20,29 @@
  */
 
 import type { Gender } from '@midnight-ntwrk/kitties-contract';
+import { getZswapNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
+import { parseCoinPublicKeyToHex } from '@midnight-ntwrk/midnight-js-utils';
+
+// Helper function to convert wallet public key to bytes format
+// This handles the conversion from Bech32m format (or other formats) to the 32-byte format expected by the contract
+export function convertWalletPublicKeyToBytes (coinPublicKey: unknown): Uint8Array {
+  try {
+    // Use the official parseCoinPublicKeyToHex function to convert any format to hex
+    const hexKey = parseCoinPublicKeyToHex(coinPublicKey as string, getZswapNetworkId());
+
+    // Convert hex string to Uint8Array (remove 0x prefix if present)
+    const hex = hexKey.startsWith('0x') ? hexKey.slice(2) : hexKey;
+    const bytes = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < hex.length; i += 2) {
+      bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+    }
+
+    return bytes;
+  } catch (error) {
+    console.error('Failed to parse coin public key:', error);
+    throw new Error(`Unable to parse coin public key: ${coinPublicKey}`);
+  }
+};
 
 /**
  * Generate random bytes for various purposes (DNA generation, etc.)

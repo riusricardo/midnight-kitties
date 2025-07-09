@@ -35,8 +35,9 @@ import {
 } from '@midnight-ntwrk/kitties-contract';
 import { deployContract, findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
 
-import { assertIsContractAddress, toHex } from '@midnight-ntwrk/midnight-js-utils';
+import { assertIsContractAddress, toHex, parseCoinPublicKeyToHex } from '@midnight-ntwrk/midnight-js-utils';
 import type { PrivateStateProvider } from '@midnight-ntwrk/midnight-js-types';
+import { convertWalletPublicKeyToBytes } from './utils'
 import { map, type Observable, retry } from 'rxjs';
 import {
   type KittiesContract,
@@ -73,6 +74,10 @@ export interface DeployedKittiesAPI {
   readonly getAllKittiesCount: () => Promise<bigint>;
   readonly getKittiesForSale: () => Promise<KittyListingData[]>;
   readonly getUserKitties: (owner: { bytes: Uint8Array }) => Promise<KittyData[]>;
+
+  // Wallet convenience methods
+  readonly getWalletAddress: () => { bytes: Uint8Array };
+  readonly getMyKitties: () => Promise<KittyData[]>;
 
   // NFT standard operations
   readonly balanceOf: (owner: { bytes: Uint8Array }) => Promise<bigint>;
@@ -126,6 +131,19 @@ export class KittiesAPI implements DeployedKittiesAPI {
   // ========================================
   // KITTY-SPECIFIC OPERATIONS
   // ========================================
+
+  // Helper method to get the current wallet address in the correct Hex Bytes format
+  getWalletAddress(): { bytes: Uint8Array } {
+    const coinPublicKey = this.providers.walletProvider.coinPublicKey;
+    const bytes = convertWalletPublicKeyToBytes(coinPublicKey);
+    return { bytes };
+  }
+
+  // Convenience method to get kitties for the current wallet
+  async getMyKitties(): Promise<KittyData[]> {
+    const walletAddress = this.getWalletAddress();
+    return await this.getUserKitties(walletAddress);
+  }
 
   async createKitty(): Promise<void> {
     console.log('Creating a new kitty...');
@@ -693,3 +711,4 @@ export function setLogger(_logger: any) {
 // Note: Node.js specific functions (buildWalletAndWaitForFunds, buildFreshWallet, etc.)
 // are available in './node-api' for CLI compatibility, but are not exported here
 // to maintain browser compatibility
+
