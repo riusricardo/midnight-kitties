@@ -1,0 +1,67 @@
+
+/**
+ * @file eslint.config.mjs
+ * @author Ricardo Rius
+ * @license GPL-3.0
+ *
+ * Copyright (C) 2025 Ricardo Rius
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+import js from '@eslint/js';
+import plugin from '@typescript-eslint/eslint-plugin';
+import parser from '@typescript-eslint/parser';
+import pluginPrettier from 'eslint-plugin-prettier';
+
+export default [
+  js.configs.recommended,
+  {
+    files: ['**/*.ts', '**/*.tsx'],
+    ignores: ['**/*.d.ts'],
+    languageOptions: {
+      parser,
+      parserOptions: {
+        ecmaVersion: 'latest',
+        sourceType: 'module',
+        project: ['./tsconfig.json'],
+      },
+      globals: {
+        process: 'readonly',
+        Buffer: 'readonly',
+        URL: 'readonly',
+        setTimeout: 'readonly',
+      },
+    },
+    plugins: {
+      '@typescript-eslint': plugin,
+      prettier: pluginPrettier,
+    },
+    rules: {
+      'prettier/prettier': 'error',
+      '@typescript-eslint/no-misused-promises': 'off',
+      '@typescript-eslint/no-floating-promises': 'warn',
+      '@typescript-eslint/promise-function-async': 'off',
+      '@typescript-eslint/no-redeclare': 'off',
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/consistent-type-definitions': 'off',
+      '@typescript-eslint/no-unsafe-call': 'warn',
+      '@typescript-eslint/no-unsafe-return': 'warn',
+      '@typescript-eslint/no-unsafe-assignment': 'warn',
+      '@typescript-eslint/no-unsafe-member-access': 'warn',
+      '@typescript-eslint/no-unsafe-argument': 'warn',
+      'no-constant-condition': 'off',
+    },
+  },
+];

@@ -1,4 +1,4 @@
-# 🌙 Midnight Counter App Playground
+# 🌙 Midnight Kitties App Playground
 
 <div align="center">
 
@@ -7,13 +7,13 @@
 [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org)
 [![Node.js](https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org)
 
-*A comprehensive monorepo template for building privacy-preserving applications on the Midnight blockchain*
+_A comprehensive monorepo template for building privacy-preserving applications on the Midnight blockchain_
 
 </div>
 
 ## 🚀 Overview
 
-The **Midnight Counter App Template** is a full-featured monorepo showcasing how to build privacy-preserving decentralized applications on the Midnight blockchain. This template demonstrates smart contract development, wallet integration, credential management, and age verification using zero-knowledge proofs.
+The **Midnight Kitties App Template** is a full-featured monorepo showcasing how to build privacy-preserving decentralized applications on the Midnight blockchain. This template demonstrates smart contract development, wallet integration, credential management, and age verification using zero-knowledge proofs.
 
 ### ✨ Key Features
 
@@ -30,7 +30,7 @@ The **Midnight Counter App Template** is a full-featured monorepo showcasing how
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   Web App UI    │    │   CLI Tools      │    │  Smart Contract │
 │                 │    │                  │    │                 │
-│ • React Frontend│    │ • Contract Deploy│    │ • Counter Logic │
+│ • React Frontend│    │ • Contract Deploy│    │ • Kitties Logic │
 │ • Wallet Connect│◄──►│ • Credential Mgmt│◄──►│ • Age Verify    │
 │ • Age Verify    │    │ • Testing Utils  │    │ • ZK Proofs     │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
@@ -38,7 +38,7 @@ The **Midnight Counter App Template** is a full-featured monorepo showcasing how
          └───────────────────────┼───────────────────────┘
                                  │
                         ┌──────────────────┐
-                        │   Counter API    │
+                        │   Kitties API    │
                         │                  │
                         │ • Core Logic     │
                         │ • Provider Setup │
@@ -51,24 +51,24 @@ The **Midnight Counter App Template** is a full-featured monorepo showcasing how
 ### 🎯 Applications
 
 - **`apps/web/`** - React web application with Material-UI
-  - Interactive counter interface
+  - Interactive kitties interface
   - Midnight Lace wallet integration
   - Age verification forms
   - Real-time contract state updates
 
 ### 📚 Core Packages
 
-- **`packages/contracts/counter/`** - Smart contract implementation
+- **`packages/contracts/kitties/`** - Smart contract implementation
   - Compact language source code
   - Unit tests and simulators
   - ZK circuit generation
 
-- **`packages/api/counter/`** - Unified API layer
+- **`packages/api/kitties/`** - Unified API layer
   - Browser and Node.js compatibility
   - Provider abstractions
   - Contract interaction utilities
 
-- **`packages/cli/counter/`** - Command-line interface
+- **`packages/cli/kitties/`** - Command-line interface
   - Contract deployment tools
   - Credential management system
   - Development and testing utilities
@@ -109,24 +109,24 @@ The web application will be available at `http://localhost:3000`
 
 ### 💻 Using the CLI
 
-#### Basic Counter Operations
+#### Basic Kitties Operations
 
 ```bash
 # Run CLI on testnet (without proof server)
-yarn counter-cli-remote
+yarn kitties-cli-remote
 
 # Run CLI with integrated proof server
-yarn counter-cli-remote-ps
+yarn kitties-cli-remote-ps
 ```
 
 #### CLI Features
 
 The CLI provides an interactive menu with the following options:
 
-1. **🚀 Deploy Contract** - Deploy a new counter contract
+1. **🚀 Deploy Contract** - Deploy a new kitties contract
 2. **🔗 Connect to Contract** - Connect to an existing contract
-3. **➕ Increment Counter** - Increment the counter value (requires age verification)
-4. **📊 View Counter** - Display current counter value
+3. **➕ Increment Kitties** - Increment the kitties value (requires age verification)
+4. **📊 View Kitties** - Display current kitties value
 5. **👤 Set Credentials** - Configure your age verification credentials
 6. **✅ Check Verification** - View your verification status
 
@@ -143,15 +143,15 @@ Enter your birth month (1-12): 5
 Enter your birth day (1-31): 15
 ```
 
-**Note**: You must be at least 21 years old to increment the counter, as verified through zero-knowledge proofs.
+**Note**: You must be at least 21 years old to increment the kitties, as verified through zero-knowledge proofs.
 
 ## 🔐 Smart Contract Details
 
 ### Contract Features
 
-The counter contract demonstrates:
+The kitties contract demonstrates:
 
-- **Public State Management** - Maintains a counter value on the blockchain
+- **Public State Management** - Maintains a kitties value on the blockchain
 - **Age Verification** - Requires proof of being 21+ to increment
 - **Credential Storage** - Securely stores user credentials in private state
 - **Zero-Knowledge Proofs** - Verifies age without revealing exact birthdate
@@ -160,7 +160,7 @@ The counter contract demonstrates:
 
 ```compact
 // Public ledger state
-export ledger round: Counter;
+export ledger round: Kitties;
 
 // Private state for credentials
 circuit privateState: CredentialSubject;
@@ -169,8 +169,8 @@ circuit privateState: CredentialSubject;
 export circuit increment(): [] {
   // Verify user is at least 21 years old
   require(isAtLeast21(privateState.birth_timestamp));
-  
-  // Increment the counter
+
+  // Increment the kitties
   round.increment(1);
 }
 ```
@@ -209,7 +209,7 @@ yarn test-contract
 yarn build
 
 # Build specific package
-yarn workspace @midnight-ntwrk/counter-contract build
+yarn workspace @midnight-ntwrk/kitties-contract build
 ```
 
 ### Linting
@@ -248,11 +248,11 @@ This template showcases how to implement privacy-preserving credential managemen
 
 ## 📖 Documentation
 
-- [Contract Development Guide](packages/contracts/counter/README.md)
-- [API Reference](packages/api/counter/README.md)
-- [CLI Usage Guide](packages/cli/counter/README.md)
-- [Environment Abstraction](packages/api/counter/ENVIRONMENT_ABSTRACTION.md)
-- [Path Resolution](packages/api/counter/PATH_RESOLUTION.md)
+- [Contract Development Guide](packages/contracts/kitties/README.md)
+- [API Reference](packages/api/kitties/README.md)
+- [CLI Usage Guide](packages/cli/kitties/README.md)
+- [Environment Abstraction](packages/api/kitties/ENVIRONMENT_ABSTRACTION.md)
+- [Path Resolution](packages/api/kitties/PATH_RESOLUTION.md)
 
 ## 🤝 Contributing
 
@@ -290,15 +290,15 @@ This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE
 [🌐 Website](https://midnight.network) • [📚 Docs](https://docs.midnight.network) • [💬 Community](https://discord.gg/midnight)
 
 </div>
-yarn counter-cli-remote-ps
+yarn kitties-cli-remote-ps
 ```
 
-## The Counter Contract
+## The Kitties Contract
 
-The [counter-contract](packages/contracts/counter) subdirectory contains:
+The [kitties-contract](packages/contracts/kitties) subdirectory contains:
 
-- the [smart contract](packages/contracts/counter/src/counter.compact)
-- some [unit tests](packages/contracts/counter/src/test/counter.test.ts) to test the smart contract
+- the [smart contract](packages/contracts/kitties/src/kitties.compact)
+- some [unit tests](packages/contracts/kitties/src/test/kitties.test.ts) to test the smart contract
 
 ### Building the Smart Contract
 
@@ -312,12 +312,12 @@ You should see the following output from npm and the Compact compiler:
 
 ```bash
 > compact
-> compactc --skip-zk packages/contracts/counter/src/counter.compact packages/contracts/counter/src/managed/counter
+> compactc --skip-zk packages/contracts/kitties/src/kitties.compact packages/contracts/kitties/src/managed/kitties
 
 Compactc version: 0.24.0
 ```
 
-The compiler will complete very quickly because we've instructed it to skip ZK key generation with the option `--skip-zk`. The compiler's output files will be placed in the directory `packages/contracts/counter/src/managed/counter`.
+The compiler will complete very quickly because we've instructed it to skip ZK key generation with the option `--skip-zk`. The compiler's output files will be placed in the directory `packages/contracts/kitties/src/managed/kitties`.
 
 **Run contract's tests:**
 

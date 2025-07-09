@@ -1,6 +1,7 @@
 {
   "name": "@repo/web-app",
   "version": "0.0.1",
+  "license": "GPL-3.0",
   "private": true,
   "type": "module",
   "dependencies": {
@@ -24,7 +25,7 @@
   },
   "scripts": {
     "start": "http-server --port 8080 ./dist --proxy 'http://127.0.0.1:8080?'",
-    "build": "rm -rf ./dist && tsc && vite build --mode testnet && cp -r ../../packages/contracts/counter/dist/managed/counter/keys ./dist/keys && cp -r ../../packages/contracts/counter/dist/managed/counter/zkir ./dist/zkir",
+    "build": "rm -rf ./dist && tsc && vite build --mode testnet && cp -r ../../packages/contracts/kitties/dist/managed/kitties/keys ./dist/keys && cp -r ../../packages/contracts/kitties/dist/managed/kitties/zkir ./dist/zkir",
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.ts\""
   }

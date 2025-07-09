@@ -1,13 +1,13 @@
 services:
   proof-server:
-    container_name: 'counter-proof-server'
+    container_name: 'kitties-proof-server'
     image: "midnightnetwork/proof-server:4.0.0"
     ports:
       - "6300"
     environment:
       RUST_BACKTRACE: "full"
   indexer:
-    container_name: 'counter-indexer'
+    container_name: 'kitties-indexer'
     image: 'midnightntwrk/indexer-standalone:2.1.1'
     ports:
       - '0:8088'
@@ -22,7 +22,7 @@ services:
         condition: service_started
   node:
     image: 'midnightnetwork/midnight-node:0.12.0'
-    container_name: 'counter-node'
+    container_name: 'kitties-node'
     ports:
       - "9955:9944"
     healthcheck:

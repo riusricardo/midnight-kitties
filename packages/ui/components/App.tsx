@@ -1,3 +1,28 @@
+/**
+ * @file App.tsx
+ * @author Ricardo Rius
+ * @license GPL-3.0
+ *
+ * Copyright (C) 2025 Ricardo Rius
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ *
+ * DISCLAIMER: This software is provided "as is" without any warranty.
+ * Use at your own risk. The author assumes no responsibility for any
+ * damages or losses arising from the use of this software.
+ */
+
 /* eslint-disable prettier/prettier */
 import React, { useState } from 'react';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -8,16 +33,16 @@ import { RuntimeConfigurationProvider, useRuntimeConfiguration } from '../config
 import { MidnightWalletProvider, useMidnightWallet } from './MidnightWallet.js';
 import * as pino from 'pino';
 import { type NetworkId, setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
-import { CounterApplication } from './CounterDeploy.js';
-import { CounterReaderApplication } from './CounterReader.js';
+import { KittiesApplication } from './KittiesDeploy.js';
+import { KittiesReaderApplication } from './KittiesReader.js';
 import { type Logger } from 'pino';
-import { createCounterProviders } from '@repo/counter-api/browser-api';
-import type { CounterProviders } from '@repo/counter-api';
+import { createKittiesProviders } from '@repo/kitties-api/browser-api';
+import type { KittiesProviders } from '@repo/kitties-api';
 
-const CounterAppContent: React.FC<{ logger: Logger }> = () => {
+const KittiesAppContent: React.FC<{ logger: Logger }> = () => {
   const walletState = useMidnightWallet();
   const [tabValue, setTabValue] = useState(0);
-  const [counterProviders, setCounterProviders] = useState<CounterProviders | null>(null);
+  const [kittiesProviders, setKittiesProviders] = useState<KittiesProviders | null>(null);
   const [providersLoading, setProvidersLoading] = useState(false);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -29,21 +54,21 @@ const CounterAppContent: React.FC<{ logger: Logger }> = () => {
     if (walletState.walletAPI && walletState.isConnected) {
       setProvidersLoading(true);
       try {
-        const midnightProviders = createCounterProviders(
+        const midnightProviders = createKittiesProviders(
           walletState.publicDataProvider,
           walletState.walletProvider,
           walletState.midnightProvider,
           walletState.walletAPI!,
           walletState.callback,
-        ) as CounterProviders;
-        setCounterProviders(midnightProviders);
+        ) as KittiesProviders;
+        setKittiesProviders(midnightProviders);
       } catch {
         // Failed to initialize providers - will be handled by the loading state
       } finally {
         setProvidersLoading(false);
       }
     } else {
-      setCounterProviders(null);
+      setKittiesProviders(null);
       setProvidersLoading(false);
     }
   }, [
@@ -61,7 +86,7 @@ const CounterAppContent: React.FC<{ logger: Logger }> = () => {
       <Box sx={{ position: 'fixed', top: 16, right: 16, zIndex: 1000 }}>{walletState.widget}</Box>
 
       <Typography variant="h3" component="h1" gutterBottom align="center">
-        Midnight Counter App
+        Midnight Kitties App
       </Typography>
       <Box sx={{ my: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 600 }}>
         {walletState.isConnected ? (
@@ -77,15 +102,15 @@ const CounterAppContent: React.FC<{ logger: Logger }> = () => {
               </Box>
             ) : (
               <>
-                {tabValue === 0 && counterProviders && (
-                  <CounterApplication
-                    providers={counterProviders}
+                {tabValue === 0 && kittiesProviders && (
+                  <KittiesApplication
+                    providers={kittiesProviders}
                     walletPublicKey={walletState.walletAPI?.coinPublicKey}
                   />
                 )}
-                {tabValue === 1 && counterProviders && (
-                  <CounterReaderApplication
-                    providers={counterProviders}
+                {tabValue === 1 && kittiesProviders && (
+                  <KittiesReaderApplication
+                    providers={kittiesProviders}
                     walletPublicKey={walletState.walletAPI?.coinPublicKey}
                   />
                 )}
@@ -95,10 +120,10 @@ const CounterAppContent: React.FC<{ logger: Logger }> = () => {
         ) : (
           <Paper elevation={3} sx={{ p: 3, width: '100%', maxWidth: 600, textAlign: 'center' }}>
             <Typography variant="h6" gutterBottom color="textSecondary">
-              Welcome to Midnight Counter App
+              Welcome to Midnight Kitties App
             </Typography>
             <Typography variant="body1" color="textSecondary" sx={{ mb: 3 }}>
-              Please connect your Midnight Lace wallet to start using the Counter Application
+              Please connect your Midnight Lace wallet to start using the Kitties Application
             </Typography>
             {walletState.widget}
           </Paper>
@@ -119,7 +144,7 @@ const AppWithConfig: React.FC = () => {
   return (
     <LocalStateProvider logger={logger}>
       <MidnightWalletProvider logger={logger}>
-        <CounterAppContent logger={logger} />
+        <KittiesAppContent logger={logger} />
       </MidnightWalletProvider>
     </LocalStateProvider>
   );

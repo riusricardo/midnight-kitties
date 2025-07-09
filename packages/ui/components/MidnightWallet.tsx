@@ -1,8 +1,30 @@
+/**
+ * @file MidnightWallet.tsx
+ * @license GPL-3.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ *
+ * DISCLAIMER: This software is provided "as is" without any warranty.
+ * Use at your own risk. The author assumes no responsibility for any
+ * damages or losses arising from the use of this software.
+ */
+
 /* global console */
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { Logger } from 'pino';
 import { type Address, type CoinPublicKey } from '@midnight-ntwrk/wallet-api';
-import { type ImpureCounterCircuits, contractConfig } from '@repo/counter-api';
+import { type ImpureKittiesCircuits, contractConfig } from '@repo/kitties-api';
 import {
   type BalancedTransaction,
   createBalancedTx,
@@ -20,11 +42,11 @@ import type { DAppConnectorWalletAPI, ServiceUriConfig } from '@midnight-ntwrk/d
 import { useLocalState } from '../hooks/useLocalState';
 import type { ZKConfigProvider, WalletProvider, MidnightProvider } from '@midnight-ntwrk/midnight-js-types';
 import { MidnightWalletErrorType, WalletWidget } from './WalletWidget';
-import { connectToWallet } from '@repo/counter-api/browser';
-import { noopProofClient, proofClient } from '@repo/counter-api/browser-api';
-import { WrappedPublicDataProvider } from '@repo/counter-api/browser';
-import { WrappedPrivateStateProvider } from '@repo/counter-api/browser';
-import { CachedFetchZkConfigProvider } from '@repo/counter-api/browser-api';
+import { connectToWallet } from '@repo/kitties-api/browser';
+import { noopProofClient, proofClient } from '@repo/kitties-api/browser-api';
+import { WrappedPublicDataProvider } from '@repo/kitties-api/browser';
+import { WrappedPrivateStateProvider } from '@repo/kitties-api/browser';
+import { CachedFetchZkConfigProvider } from '@repo/kitties-api/browser-api';
 
 // Replace isChromeBrowser and window/fetch usages with safe checks for build/SSR
 function isChromeBrowser(): boolean {
@@ -42,8 +64,8 @@ interface MidnightWalletState {
   widget?: React.ReactNode;
   walletAPI?: WalletAPI;
   privateStateProvider: any;
-  zkConfigProvider: ZKConfigProvider<ImpureCounterCircuits>;
-  proofProvider: ProofProvider<ImpureCounterCircuits>;
+  zkConfigProvider: ZKConfigProvider<ImpureKittiesCircuits>;
+  proofProvider: ProofProvider<ImpureKittiesCircuits>;
   publicDataProvider: PublicDataProvider;
   walletProvider: WalletProvider;
   midnightProvider: MidnightProvider;
@@ -135,7 +157,7 @@ export const MidnightWalletProvider: React.FC<MidnightWalletProviderProps> = ({ 
 
   const zkConfigProvider = useMemo(
     () =>
-      new CachedFetchZkConfigProvider<ImpureCounterCircuits>(
+      new CachedFetchZkConfigProvider<ImpureKittiesCircuits>(
         window.location.origin,
         fetch.bind(window),
         providerCallback,

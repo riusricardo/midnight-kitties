@@ -1,5 +1,6 @@
 {
-  "name": "counter-app",
+  "name": "midnight-kitties",
+  "license": "GPL-3.0",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -12,18 +13,18 @@
     "compact": "turbo run compact",
     "build": "turbo run build",
     "start": "turbo run start --filter=@repo/web-app",
-    "counter-cli-remote": "yarn --cwd packages/cli/counter run start-testnet-remote",
-    "counter-cli-remote-ps": "yarn --cwd packages/cli/counter run start-testnet-remote-ps",
-    "test-against-testnet": "yarn --cwd packages/cli/counter run test-against-testnet",
+    "kitties-cli-remote": "yarn --cwd packages/cli/kitties run start-testnet-remote",
+    "kitties-cli-remote-ps": "yarn --cwd packages/cli/kitties run start-testnet-remote-ps",
+    "test-against-testnet": "yarn --cwd packages/cli/kitties run test-against-testnet",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "lint": "turbo run lint",
-    "test-api": "turbo run test-api --filter=@repo/counter-api",
-    "test-contract": "turbo run test --filter=@midnight-ntwrk/counter-contract"
+    "test-api": "turbo run test-api --filter=@repo/kitties-api",
+    "test-contract": "turbo run test --filter=@midnight-ntwrk/kitties-contract"
   },
   "dependencies": {
     "@eslint/js": "^9.28.0",
     "@midnight-ntwrk/compact-runtime": "^0.8.1",
-    "@midnight-ntwrk/counter-cli": "^0.1.0",
+    "@midnight-ntwrk/kitties-cli": "^0.1.0",
     "@midnight-ntwrk/dapp-connector-api": "^3.0.0",
     "@midnight-ntwrk/ledger": "^4.0.0",
     "@midnight-ntwrk/midnight-js-contracts": "2.0.2",

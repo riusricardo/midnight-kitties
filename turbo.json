@@ -11,7 +11,7 @@
     },
     "compact": {
       "dependsOn": ["^build"],
-      "env": ["COMPACT_HOME"],
+      "env": ["COMPACT_HOME", "COMPACT_PATH"],
       "inputs": ["src/**/*.compact"],
       "outputs": ["src/managed/**", "src/gen/**", "gen/**"]
     },
