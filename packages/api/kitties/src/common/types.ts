@@ -23,7 +23,7 @@
  * damages or losses arising from the use of this software.
  */
 
-import { Kitties, type KittiesPrivateState } from '@midnight-ntwrk/kitties-contract';
+import { Kitties, type KittiesPrivateState, type Gender } from '@midnight-ntwrk/kitties-contract';
 import type { ImpureCircuitId, MidnightProviders } from '@midnight-ntwrk/midnight-js-types';
 import type { DeployedContract, FoundContract } from '@midnight-ntwrk/midnight-js-contracts';
 
@@ -40,3 +40,63 @@ export type KittiesProviders = MidnightProviders<
 >;
 
 export type DeployedKittiesContract = DeployedContract<KittiesContract> | FoundContract<KittiesContract>;
+
+// Re-export types from the contract
+export type { Ledger, Kitty , Gender } from '@midnight-ntwrk/kitties-contract';
+
+// Helper types for API methods
+export interface KittyData {
+  id: bigint;
+  dna: bigint;
+  gender: Gender;
+  owner: { bytes: Uint8Array };
+  price: bigint;
+  forSale: boolean;
+  generation: bigint;
+}
+
+export interface KittyListingData {
+  id: bigint;
+  kitty: KittyData;
+}
+
+export interface TransferKittyParams {
+  to: { bytes: Uint8Array };
+  kittyId: bigint;
+}
+
+export interface SetPriceParams {
+  kittyId: bigint;
+  price: bigint;
+}
+
+export interface BuyKittyParams {
+  kittyId: bigint;
+  bidPrice: bigint;
+}
+
+export interface BreedKittyParams {
+  kittyId1: bigint;
+  kittyId2: bigint;
+}
+
+export interface NFTApprovalParams {
+  to: { bytes: Uint8Array };
+  tokenId: bigint;
+}
+
+export interface NFTSetApprovalForAllParams {
+  operator: { bytes: Uint8Array };
+  approved: boolean;
+}
+
+export interface NFTTransferParams {
+  to: { bytes: Uint8Array };
+  tokenId: bigint;
+}
+
+export interface NFTTransferFromParams {
+  from: { bytes: Uint8Array };
+  to: { bytes: Uint8Array };
+  tokenId: bigint;
+}

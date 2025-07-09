@@ -32,14 +32,28 @@ import {
   type KittiesPrivateState,
   createKittiesPrivateState,
   witnesses,
-} from '../../../../contracts/kitties/dist/index.js';
+} from '@midnight-ntwrk/kitties-contract';
 import { deployContract, findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
-import { type FinalizedTxData } from '@midnight-ntwrk/midnight-js-types';
 
 import { assertIsContractAddress, toHex } from '@midnight-ntwrk/midnight-js-utils';
 import type { PrivateStateProvider } from '@midnight-ntwrk/midnight-js-types';
 import { map, type Observable, retry } from 'rxjs';
-import { type KittiesContract, type KittiesProviders, type DeployedKittiesContract } from './types.js';
+import { 
+  type KittiesContract, 
+  type KittiesProviders, 
+  type DeployedKittiesContract,
+  type KittyData,
+  type KittyListingData,
+  type TransferKittyParams,
+  type SetPriceParams,
+  type BuyKittyParams,
+  type BreedKittyParams,
+  type NFTApprovalParams,
+  type NFTSetApprovalForAllParams,
+  type NFTTransferParams,
+  type NFTTransferFromParams,
+  type Kitty,
+} from './types.js';
 
 // Single shared contract instance to ensure consistency
 const kittiesContractInstance: KittiesContract = new Kitties.Contract(witnesses);
@@ -48,12 +62,33 @@ const kittiesContractInstance: KittiesContract = new Kitties.Contract(witnesses)
 export interface DeployedKittiesAPI {
   readonly deployedContractAddress: ContractAddress;
   readonly state$: Observable<KittiesState>;
-  readonly increment: () => Promise<void>;
-  readonly getKittiesValue: () => Promise<bigint>;
+  
+  // Kitty-specific operations
+  readonly createKitty: () => Promise<void>;
+  readonly transferKitty: (params: TransferKittyParams) => Promise<void>;
+  readonly setPrice: (params: SetPriceParams) => Promise<void>;
+  readonly buyKitty: (params: BuyKittyParams) => Promise<void>;
+  readonly breedKitty: (params: BreedKittyParams) => Promise<void>;
+  readonly getKitty: (kittyId: bigint) => Promise<KittyData>;
+  readonly getAllKittiesCount: () => Promise<bigint>;
+  readonly getKittiesForSale: () => Promise<KittyListingData[]>;
+  readonly getUserKitties: (owner: { bytes: Uint8Array }) => Promise<KittyData[]>;
+  
+  // NFT standard operations
+  readonly balanceOf: (owner: { bytes: Uint8Array }) => Promise<bigint>;
+  readonly ownerOf: (tokenId: bigint) => Promise<{ bytes: Uint8Array }>;
+  readonly approve: (params: NFTApprovalParams) => Promise<void>;
+  readonly getApproved: (tokenId: bigint) => Promise<{ bytes: Uint8Array }>;
+  readonly setApprovalForAll: (params: NFTSetApprovalForAllParams) => Promise<void>;
+  readonly isApprovedForAll: (owner: { bytes: Uint8Array }, operator: { bytes: Uint8Array }) => Promise<boolean>;
+  readonly transfer: (params: NFTTransferParams) => Promise<void>;
+  readonly transferFrom: (params: NFTTransferFromParams) => Promise<void>;
 }
 
 export interface KittiesState {
-  readonly kittiesValue: bigint;
+  readonly allKittiesCount: bigint;
+  readonly genderSelector: boolean;
+  readonly kitties: Map<bigint, Kitty>;
 }
 
 // Transaction response type for CLI operations
@@ -75,7 +110,9 @@ export class KittiesAPI implements DeployedKittiesAPI {
       .pipe(
         map((contractState) => Kitties.ledger(contractState.data)),
         map((ledgerState) => ({
-          kittiesValue: ledgerState.round,
+          allKittiesCount: ledgerState.allKittiesCount,
+          genderSelector: ledgerState.genderSelector,
+          kitties: new Map(Array.from(ledgerState.kitties)),
         })),
         retry({
           delay: 500, // retry websocket connection if it fails
@@ -86,19 +123,210 @@ export class KittiesAPI implements DeployedKittiesAPI {
   readonly deployedContractAddress: ContractAddress;
   readonly state$: Observable<KittiesState>;
 
-  async increment(): Promise<void> {
-    console.log('Incrementing kitties...');
-    const finalizedTxData = await KittiesAPI.incrementWithTxInfo(this);
-    console.log(`Transaction ${finalizedTxData.txId} added in block ${finalizedTxData.blockHeight}`);
+  // ========================================
+  // KITTY-SPECIFIC OPERATIONS
+  // ========================================
+
+  async createKitty(): Promise<void> {
+    console.log('Creating a new kitty...');
+    const finalizedTxData = await this.deployedContract.callTx.createKitty();
+    console.log(`Kitty created! Transaction added in block ${finalizedTxData.public.blockHeight}`);
   }
 
-  async getKittiesValue(): Promise<bigint> {
-    console.log('Getting kitties value...');
-    const { kittiesValue } = await KittiesAPI.getKittiesInfo(this);
-    if (kittiesValue === null) {
-      return BigInt(0);
+  async transferKitty(params: TransferKittyParams): Promise<void> {
+    console.log(`Transferring kitty ${params.kittyId} to ${toHex(params.to.bytes)}...`);
+    const finalizedTxData = await this.deployedContract.callTx.transferKitty(params.to, params.kittyId);
+    console.log(`Kitty transferred! Transaction added in block ${finalizedTxData.public.blockHeight}`);
+  }
+
+  async setPrice(params: SetPriceParams): Promise<void> {
+    console.log(`Setting price for kitty ${params.kittyId} to ${params.price}...`);
+    const finalizedTxData = await this.deployedContract.callTx.setPrice(params.kittyId, params.price);
+    console.log(`Price set! Transaction added in block ${finalizedTxData.public.blockHeight}`);
+  }
+
+  async buyKitty(params: BuyKittyParams): Promise<void> {
+    console.log(`Buying kitty ${params.kittyId} for ${params.bidPrice}...`);
+    const finalizedTxData = await this.deployedContract.callTx.buyKitty(params.kittyId, params.bidPrice);
+    console.log(`Kitty purchased! Transaction added in block ${finalizedTxData.public.blockHeight}`);
+  }
+
+  async breedKitty(params: BreedKittyParams): Promise<void> {
+    console.log(`Breeding kitties ${params.kittyId1} and ${params.kittyId2}...`);
+    const finalizedTxData = await this.deployedContract.callTx.breedKitty(params.kittyId1, params.kittyId2);
+    console.log(`Kitties bred! Transaction added in block ${finalizedTxData.public.blockHeight}`);
+  }
+
+  async getKitty(kittyId: bigint): Promise<KittyData> {
+    console.log(`Getting kitty ${kittyId}...`);
+    // Use the contract call directly for read operations
+    const kitty = await this.deployedContract.callTx.getKitty(kittyId);
+    // Extract the result from the transaction - it should be the return value
+    return {
+      id: kittyId,
+      dna: (kitty as any).dna,
+      gender: (kitty as any).gender,
+      owner: (kitty as any).owner,
+      price: (kitty as any).price,
+      forSale: (kitty as any).forSale,
+      generation: (kitty as any).generation,
+    };
+  }
+
+  async getAllKittiesCount(): Promise<bigint> {
+    console.log('Getting total kitties count...');
+    // Use the contract call directly for read operations
+    const count = await this.deployedContract.callTx.getAllKittiesCount();
+    console.log(`Total kitties: ${count}`);
+    return count as any;
+  }
+
+  async getKittiesForSale(): Promise<KittyListingData[]> {
+    console.log('Getting kitties for sale...');
+    const contractState = await this.providers.publicDataProvider.queryContractState(this.deployedContractAddress);
+    if (!contractState) {
+      return [];
     }
-    return kittiesValue;
+    
+    const ledgerState = Kitties.ledger(contractState.data);
+    const forSaleKitties: KittyListingData[] = [];
+    
+    for (const [kittyId, kitty] of ledgerState.kitties) {
+      if (kitty.forSale) {
+        forSaleKitties.push({
+          id: kittyId,
+          kitty: {
+            id: kittyId,
+            dna: kitty.dna,
+            gender: kitty.gender,
+            owner: kitty.owner,
+            price: kitty.price,
+            forSale: kitty.forSale,
+            generation: kitty.generation,
+          },
+        });
+      }
+    }
+    
+    console.log(`Found ${forSaleKitties.length} kitties for sale`);
+    return forSaleKitties;
+  }
+
+  async getUserKitties(owner: { bytes: Uint8Array }): Promise<KittyData[]> {
+    console.log(`Getting kitties for owner ${toHex(owner.bytes)}...`);
+    const contractState = await this.providers.publicDataProvider.queryContractState(this.deployedContractAddress);
+    if (!contractState) {
+      return [];
+    }
+    
+    const ledgerState = Kitties.ledger(contractState.data);
+    const userKitties: KittyData[] = [];
+    
+    for (const [kittyId, kitty] of ledgerState.kitties) {
+      if (toHex(kitty.owner.bytes) === toHex(owner.bytes)) {
+        userKitties.push({
+          id: kittyId,
+          dna: kitty.dna,
+          gender: kitty.gender,
+          owner: kitty.owner,
+          price: kitty.price,
+          forSale: kitty.forSale,
+          generation: kitty.generation,
+        });
+      }
+    }
+    
+    console.log(`Found ${userKitties.length} kitties for user`);
+    return userKitties;
+  }
+
+  // ========================================
+  // NFT STANDARD OPERATIONS
+  // ========================================
+
+  async balanceOf(owner: { bytes: Uint8Array }): Promise<bigint> {
+    console.log(`Getting balance for owner ${toHex(owner.bytes)}...`);
+    const balance = await this.deployedContract.callTx.balanceOf(owner);
+    return balance as any;
+  }
+
+  async ownerOf(tokenId: bigint): Promise<{ bytes: Uint8Array }> {
+    console.log(`Getting owner of token ${tokenId}...`);
+    const owner = await this.deployedContract.callTx.ownerOf(tokenId);
+    return owner as any;
+  }
+
+  async approve(params: NFTApprovalParams): Promise<void> {
+    console.log(`Approving ${toHex(params.to.bytes)} for token ${params.tokenId}...`);
+    const finalizedTxData = await this.deployedContract.callTx.approve(params.to, params.tokenId);
+    console.log(`Approval granted! Transaction added in block ${finalizedTxData.public.blockHeight}`);
+  }
+
+  async getApproved(tokenId: bigint): Promise<{ bytes: Uint8Array }> {
+    console.log(`Getting approved address for token ${tokenId}...`);
+    const approved = await this.deployedContract.callTx.getApproved(tokenId);
+    return approved as any;
+  }
+
+  async setApprovalForAll(params: NFTSetApprovalForAllParams): Promise<void> {
+    console.log(`Setting approval for all tokens - operator: ${toHex(params.operator.bytes)}, approved: ${params.approved}...`);
+    const finalizedTxData = await this.deployedContract.callTx.setApprovalForAll(params.operator, params.approved);
+    console.log(`Approval for all set! Transaction added in block ${finalizedTxData.public.blockHeight}`);
+  }
+
+  async isApprovedForAll(owner: { bytes: Uint8Array }, operator: { bytes: Uint8Array }): Promise<boolean> {
+    console.log(`Checking if ${toHex(operator.bytes)} is approved for all tokens of ${toHex(owner.bytes)}...`);
+    const isApproved = await this.deployedContract.callTx.isApprovedForAll(owner, operator);
+    return isApproved as any;
+  }
+
+  async transfer(params: NFTTransferParams): Promise<void> {
+    console.log(`Transferring token ${params.tokenId} to ${toHex(params.to.bytes)}...`);
+    const finalizedTxData = await this.deployedContract.callTx.transfer(params.to, params.tokenId);
+    console.log(`Token transferred! Transaction added in block ${finalizedTxData.public.blockHeight}`);
+  }
+
+  async transferFrom(params: NFTTransferFromParams): Promise<void> {
+    console.log(`Transferring token ${params.tokenId} from ${toHex(params.from.bytes)} to ${toHex(params.to.bytes)}...`);
+    const finalizedTxData = await this.deployedContract.callTx.transferFrom(params.from, params.to, params.tokenId);
+    console.log(`Token transferred! Transaction added in block ${finalizedTxData.public.blockHeight}`);
+  }
+
+  // ========================================
+  // UTILITY METHODS
+  // ========================================
+
+  /**
+   * Validate that all required providers are present
+   */
+  private static validateProviders(providers: KittiesProviders): void {
+    if (!providers) {
+      throw new Error('KittiesProviders is required for deployment');
+    }
+
+    if (!providers.publicDataProvider) {
+      throw new Error('PublicDataProvider is required for deployment');
+    }
+
+    if (!providers.privateStateProvider) {
+      throw new Error('PrivateStateProvider is required for deployment');
+    }
+
+    if (!providers.walletProvider) {
+      throw new Error('WalletProvider is required for deployment');
+    }
+
+    if (!providers.zkConfigProvider) {
+      throw new Error('ZKConfigProvider is required for deployment');
+    }
+
+    if (!providers.proofProvider) {
+      throw new Error('ProofProvider is required for deployment');
+    }
+
+    if (!providers.midnightProvider) {
+      throw new Error('MidnightProvider is required for deployment');
+    }
   }
 
   // ========================================
@@ -118,7 +346,7 @@ export class KittiesAPI implements DeployedKittiesAPI {
       // Validate providers
       KittiesAPI.validateProviders(providers);
 
-      console.log('Calling deployContract with shared contract instance...');
+      console.log('Calling deployContract ...');
       const deployedContract = await deployContract(providers as any, {
         contract: kittiesContractInstance,
         privateStateId: 'kittiesPrivateState',
@@ -183,13 +411,13 @@ export class KittiesAPI implements DeployedKittiesAPI {
   }
 
   /**
-   * Increment the kitties and return transaction information (for CLI use)
+   * Create a new kitty using the KittiesAPI instance (for CLI use)
    * @param kittiesApi - The KittiesAPI instance
    * @returns Transaction response with details
    */
-  static async incrementWithTxInfo(kittiesApi: KittiesAPI): Promise<TransactionResponse> {
-    console.log('Incrementing...');
-    const finalizedTxData = await kittiesApi.deployedContract.callTx.increment();
+  static async createKittyWithTxInfo(kittiesApi: KittiesAPI): Promise<TransactionResponse> {
+    console.log('Creating new kitty...');
+    const finalizedTxData = await kittiesApi.deployedContract.callTx.createKitty();
 
     // Extract transaction information defensively
     let txInfo: TransactionResponse = {};
@@ -225,43 +453,43 @@ export class KittiesAPI implements DeployedKittiesAPI {
   }
 
   /**
-   * Get current kitties value and contract information
+   * Get current kitties count and contract information
    * @param kittiesApi - The KittiesAPI instance
-   * @returns Object with kitties value and contract address
+   * @returns Object with kitties count and contract address
    */
   static async getKittiesInfo(
     kittiesApi: KittiesAPI,
-  ): Promise<{ kittiesValue: bigint | null; contractAddress: ContractAddress }> {
+  ): Promise<{ kittiesCount: bigint | null; contractAddress: ContractAddress }> {
     const contractAddress = kittiesApi.deployedContractAddress;
     try {
-      const kittiesValue = await KittiesAPI.getKittiesState(kittiesApi.providers, contractAddress);
-      if (kittiesValue === null) {
+      const kittiesCount = await KittiesAPI.getKittiesCount(kittiesApi.providers, contractAddress);
+      if (kittiesCount === null) {
         console.log(`There is no kitties contract deployed at ${contractAddress}.`);
       } else {
-        console.log(`Current kitties value: ${Number(kittiesValue)}`);
+        console.log(`Current kitties count: ${Number(kittiesCount)}`);
       }
-      return { contractAddress, kittiesValue };
+      return { contractAddress, kittiesCount };
     } catch (error) {
-      console.error('Error reading kitties value directly:', error);
+      console.error('Error reading kitties count directly:', error);
       throw new Error(
-        `Unable to read kitties value from contract at ${contractAddress}. The contract may not be a valid kitties contract or may be incompatible.`,
+        `Unable to read kitties count from contract at ${contractAddress}. The contract may not be a valid kitties contract or may be incompatible.`,
       );
     }
   }
 
   /**
-   * Get the kitties state (value) from a contract address
+   * Get the kitties count from a contract address
    * @param providers - The providers configuration
    * @param contractAddress - The contract address to query
-   * @returns The kitties value or null if not found
+   * @returns The kitties count or null if not found
    */
-  static async getKittiesState(providers: KittiesProviders, contractAddress: ContractAddress): Promise<bigint | null> {
+  static async getKittiesCount(providers: KittiesProviders, contractAddress: ContractAddress): Promise<bigint | null> {
     assertIsContractAddress(contractAddress);
     console.log('Checking contract state...');
     const state = await providers.publicDataProvider
       .queryContractState(contractAddress)
-      .then((contractState) => (contractState != null ? Kitties.ledger(contractState.data).round : null));
-    console.log(`Kitties state: ${state}`);
+      .then((contractState) => (contractState != null ? Kitties.ledger(contractState.data).allKittiesCount : null));
+    console.log(`Kitties count: ${state}`);
     return state;
   }
 
@@ -321,169 +549,128 @@ export class KittiesAPI implements DeployedKittiesAPI {
   }
 
   // ========================================
-  // CREDENTIAL MANAGEMENT METHODS
+  // STATIC METHODS FOR KITTY OPERATIONS
   // ========================================
 
   /**
-   * Update the private state with credential subject information
-   * @param credentialSubject - The credential subject data to store
+   * Create a new kitty (for CLI use)
+   * @param kittiesApi - The KittiesAPI instance
+   * @returns Transaction response with details
    */
-  async updateCredentialSubject(credentialSubject: any): Promise<void> {
-    try {
-      // Validate credential subject format before storing
-      if (!credentialSubject) {
-        throw new Error('Credential subject cannot be null or undefined');
-      }
-
-      if (
-        !credentialSubject.id ||
-        !(credentialSubject.id instanceof Uint8Array) ||
-        credentialSubject.id.length !== 32
-      ) {
-        throw new Error('Credential subject ID must be a Uint8Array of length 32');
-      }
-
-      if (
-        !credentialSubject.first_name ||
-        !(credentialSubject.first_name instanceof Uint8Array) ||
-        credentialSubject.first_name.length !== 32
-      ) {
-        throw new Error('Credential subject first_name must be a Uint8Array of length 32');
-      }
-
-      if (
-        !credentialSubject.last_name ||
-        !(credentialSubject.last_name instanceof Uint8Array) ||
-        credentialSubject.last_name.length !== 32
-      ) {
-        throw new Error('Credential subject last_name must be a Uint8Array of length 32');
-      }
-
-      if (typeof credentialSubject.birth_timestamp !== 'bigint') {
-        throw new Error('Credential subject birth_timestamp must be a bigint');
-      }
-
-      // Get current private state
-      const currentState = await this.providers.privateStateProvider.get('kittiesPrivateState');
-
-      // Create updated state with new credential subject
-      const updatedState: KittiesPrivateState = {
-        ...currentState,
-        value: currentState?.value ?? 0,
-        CredentialSubject: credentialSubject,
-      };
-
-      // Save updated state
-      await this.providers.privateStateProvider.set('kittiesPrivateState', updatedState);
-      console.log('Updated private state with credential subject successfully');
-    } catch (error) {
-      console.error('Error updating credential subject:', error);
-      throw new Error(
-        `Failed to update credential information: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
+  static async createKitty(kittiesApi: KittiesAPI): Promise<TransactionResponse> {
+    return await KittiesAPI.createKittyWithTxInfo(kittiesApi);
   }
 
   /**
-   * Get the current credential subject from private state
-   * @returns The credential subject or null if not set
+   * Transfer a kitty to another address (for CLI use)
+   * @param kittiesApi - The KittiesAPI instance
+   * @param params - Transfer parameters
+   * @returns Transaction response with details
    */
-  async getCredentialSubject(): Promise<any | null> {
-    try {
-      const privateState = await this.providers.privateStateProvider.get('kittiesPrivateState');
-      const credentialSubject = privateState?.CredentialSubject;
-
-      // Return null if no credential subject or if it's the default empty one
-      if (!credentialSubject) return null;
-
-      // Check if this is a default/empty credential subject (all zeros)
-      const isDefaultCredential =
-        credentialSubject.birth_timestamp === 0n ||
-        (credentialSubject.id && credentialSubject.id.every((byte: number) => byte === 0));
-
-      return isDefaultCredential ? null : credentialSubject;
-    } catch (error) {
-      console.error('Error getting credential subject:', error);
-      return null;
-    }
+  static async transferKitty(kittiesApi: KittiesAPI, params: TransferKittyParams): Promise<TransactionResponse> {
+    console.log(`Transferring kitty ${params.kittyId} to ${toHex(params.to.bytes)}...`);
+    const finalizedTxData = await kittiesApi.deployedContract.callTx.transferKitty(params.to, params.kittyId);
+    
+    return {
+      txId: (finalizedTxData as any).public?.txId,
+      txHash: (finalizedTxData as any).public?.txHash,
+      blockHeight: (finalizedTxData as any).public?.blockHeight,
+    };
   }
 
   /**
-   * Check if the user is verified (has valid credential subject)
-   * @returns True if the user has a valid credential subject
+   * Set price for a kitty (for CLI use)
+   * @param kittiesApi - The KittiesAPI instance
+   * @param params - Set price parameters
+   * @returns Transaction response with details
    */
-  async isUserVerified(): Promise<boolean> {
-    const credentialSubject = await this.getCredentialSubject();
-    if (!credentialSubject) return false;
-
-    // Check if this is a default/empty credential subject (all zeros)
-    const isDefaultCredential =
-      credentialSubject.birth_timestamp === 0n ||
-      (credentialSubject.id && credentialSubject.id.every((byte: number) => byte === 0));
-
-    if (isDefaultCredential) return false;
-
-    // Check if the user is at least 21 years old (to match smart contract behavior)
-    const currentTime = BigInt(Date.now());
-    const twentyOneYearsInMs = BigInt(21 * 365 * 24 * 60 * 60 * 1000);
-
-    return currentTime - credentialSubject.birth_timestamp >= twentyOneYearsInMs;
+  static async setPrice(kittiesApi: KittiesAPI, params: SetPriceParams): Promise<TransactionResponse> {
+    console.log(`Setting price for kitty ${params.kittyId} to ${params.price}...`);
+    const finalizedTxData = await kittiesApi.deployedContract.callTx.setPrice(params.kittyId, params.price);
+    
+    return {
+      txId: (finalizedTxData as any).public?.txId,
+      txHash: (finalizedTxData as any).public?.txHash,
+      blockHeight: (finalizedTxData as any).public?.blockHeight,
+    };
   }
 
   /**
-   * Static method to update credential subject for any KittiesAPI instance
+   * Buy a kitty (for CLI use)
+   * @param kittiesApi - The KittiesAPI instance
+   * @param params - Buy kitty parameters
+   * @returns Transaction response with details
    */
-  static async updateCredentialSubject(kittiesApi: KittiesAPI, credentialSubject: any): Promise<void> {
-    return kittiesApi.updateCredentialSubject(credentialSubject);
+  static async buyKitty(kittiesApi: KittiesAPI, params: BuyKittyParams): Promise<TransactionResponse> {
+    console.log(`Buying kitty ${params.kittyId} for ${params.bidPrice}...`);
+    const finalizedTxData = await kittiesApi.deployedContract.callTx.buyKitty(params.kittyId, params.bidPrice);
+    
+    return {
+      txId: (finalizedTxData as any).public?.txId,
+      txHash: (finalizedTxData as any).public?.txHash,
+      blockHeight: (finalizedTxData as any).public?.blockHeight,
+    };
   }
 
   /**
-   * Static method to check if user is verified for any KittiesAPI instance
+   * Breed two kitties (for CLI use)
+   * @param kittiesApi - The KittiesAPI instance
+   * @param params - Breed kitty parameters
+   * @returns Transaction response with details
    */
-  static async isUserVerified(kittiesApi: KittiesAPI): Promise<boolean> {
-    return kittiesApi.isUserVerified();
+  static async breedKitty(kittiesApi: KittiesAPI, params: BreedKittyParams): Promise<TransactionResponse> {
+    console.log(`Breeding kitties ${params.kittyId1} and ${params.kittyId2}...`);
+    const finalizedTxData = await kittiesApi.deployedContract.callTx.breedKitty(params.kittyId1, params.kittyId2);
+    
+    return {
+      txId: (finalizedTxData as any).public?.txId,
+      txHash: (finalizedTxData as any).public?.txHash,
+      blockHeight: (finalizedTxData as any).public?.blockHeight,
+    };
   }
-
-  // ========================================
-  // UTILITY METHODS
-  // ========================================
 
   /**
-   * Validate that all required providers are present
+   * Get kitty information (for CLI use)
+   * @param kittiesApi - The KittiesAPI instance
+   * @param kittyId - The kitty ID to get
+   * @returns The kitty data
    */
-  private static validateProviders(providers: KittiesProviders): void {
-    if (!providers) {
-      throw new Error('KittiesProviders is required for deployment');
-    }
-
-    if (!providers.publicDataProvider) {
-      throw new Error('PublicDataProvider is required for deployment');
-    }
-
-    if (!providers.privateStateProvider) {
-      throw new Error('PrivateStateProvider is required for deployment');
-    }
-
-    if (!providers.walletProvider) {
-      throw new Error('WalletProvider is required for deployment');
-    }
-
-    if (!providers.zkConfigProvider) {
-      throw new Error('ZKConfigProvider is required for deployment');
-    }
-
-    if (!providers.proofProvider) {
-      throw new Error('ProofProvider is required for deployment');
-    }
-
-    if (!providers.midnightProvider) {
-      throw new Error('MidnightProvider is required for deployment');
-    }
+  static async getKitty(kittiesApi: KittiesAPI, kittyId: bigint): Promise<KittyData> {
+    return await kittiesApi.getKitty(kittyId);
   }
+
+  /**
+   * Get total kitties count (for CLI use)
+   * @param kittiesApi - The KittiesAPI instance
+   * @returns The total kitties count
+   */
+  static async getAllKittiesCount(kittiesApi: KittiesAPI): Promise<bigint> {
+    return await kittiesApi.getAllKittiesCount();
+  }
+
+  /**
+   * Get kitties for sale (for CLI use)
+   * @param kittiesApi - The KittiesAPI instance
+   * @returns Array of kitties for sale
+   */
+  static async getKittiesForSale(kittiesApi: KittiesAPI): Promise<KittyListingData[]> {
+    return await kittiesApi.getKittiesForSale();
+  }
+
+  /**
+   * Get user's kitties (for CLI use)
+   * @param kittiesApi - The KittiesAPI instance
+   * @param owner - The owner's public key
+   * @returns Array of user's kitties
+   */
+  static async getUserKitties(kittiesApi: KittiesAPI, owner: { bytes: Uint8Array }): Promise<KittyData[]> {
+    return await kittiesApi.getUserKitties(owner);
+  }
+
 }
 
 // Exports for compatibility
-export { Kitties, witnesses } from '../../../../contracts/kitties/dist/index.js';
+export { Kitties, witnesses } from '@midnight-ntwrk/kitties-contract';
 export type { KittiesContract, KittiesProviders, DeployedKittiesContract } from './types.js';
 export { deployContract, findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
 
