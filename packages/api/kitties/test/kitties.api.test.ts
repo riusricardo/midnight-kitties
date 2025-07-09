@@ -32,9 +32,87 @@ import { TestEnvironment } from './commons';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { NodeZkConfigProvider } from '@midnight-ntwrk/midnight-js-node-zk-config-provider';
 import { contractConfig, createLogger } from '@repo/kitties-api';
+import { ShieldedCoinPublicKey, MidnightBech32m } from '@midnight-ntwrk/wallet-sdk-address-format';
 
 const logDir = path.resolve(currentDir, '..', 'logs', 'tests', `${new Date().toISOString()}.log`);
 const logger = await createLogger(logDir);
+
+// Helper function to get wallet public key bytes from providers
+const getWalletPublicKeyBytes = (providers: KittiesProviders): Uint8Array => {
+  const coinPublicKey = providers.walletProvider.coinPublicKey;
+  
+  // If it's a Bech32m format string (starts with mn_shield-cpk_)
+  if (typeof coinPublicKey === 'string' && coinPublicKey.startsWith('mn_shield-cpk_')) {
+    try {
+      const bech32 = MidnightBech32m.parse(coinPublicKey);
+      const shieldedCoinPublicKey = ShieldedCoinPublicKey.codec.decode(null, bech32);
+      return new Uint8Array(shieldedCoinPublicKey.data);
+    } catch (error) {
+      console.error('Failed to decode Bech32m address:', error);
+      throw new Error(`Failed to decode Bech32m address: ${coinPublicKey}`);
+    }
+  }
+  
+  // If it's already a Uint8Array, ensure it's 32 bytes
+  if (coinPublicKey && typeof coinPublicKey === 'object' && (coinPublicKey as any) instanceof Uint8Array) {
+    const bytes = coinPublicKey as Uint8Array;
+    // If it's exactly 32 bytes, return it
+    if (bytes.length === 32) {
+      return bytes;
+    }
+    // If it's longer, take the first 32 bytes
+    if (bytes.length > 32) {
+      return bytes.slice(0, 32);
+    }
+    // If it's shorter, pad with zeros
+    const result = new Uint8Array(32);
+    result.set(bytes);
+    return result;
+  }
+
+  // If it's a regular hex string, convert from hex and ensure 32 bytes
+  if (typeof coinPublicKey === 'string') {
+    const hex = coinPublicKey.startsWith('0x') ? coinPublicKey.slice(2) : coinPublicKey;
+    const bytes = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < hex.length; i += 2) {
+      bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+    }
+    // Ensure exactly 32 bytes
+    const result = new Uint8Array(32);
+    result.set(bytes.slice(0, 32));
+    return result;
+  }
+
+  // If it's an object with toString method
+  if (coinPublicKey && typeof coinPublicKey === 'object' && typeof (coinPublicKey as any).toString === 'function') {
+    const str = String((coinPublicKey as any).toString());
+    
+    // Check if the toString result is Bech32m format
+    if (str.startsWith('mn_shield-cpk_')) {
+      try {
+        const bech32 = MidnightBech32m.parse(str);
+        const shieldedCoinPublicKey = ShieldedCoinPublicKey.codec.decode(null, bech32);
+        return new Uint8Array(shieldedCoinPublicKey.data);
+      } catch (error) {
+        console.error('Failed to decode Bech32m address from toString:', error);
+        throw new Error(`Failed to decode Bech32m address: ${str}`);
+      }
+    }
+    
+    // Otherwise treat as hex
+    const hex = str.replace(/^0x/, '');
+    const bytes = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < hex.length; i += 2) {
+      bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+    }
+    // Ensure exactly 32 bytes
+    const result = new Uint8Array(32);
+    result.set(bytes.slice(0, 32));
+    return result;
+  }
+
+  throw new Error('Unable to determine wallet public key format');
+};
 
 describe('API', () => {
   let testEnvironment: TestEnvironment;
@@ -66,7 +144,7 @@ describe('API', () => {
     await providers.privateStateProvider.clear();
 
     // Deploy using new unified API - now returns KittiesAPI instance
-    const kittiesApi = await KittiesAPI.deploy(providers, { value: 0 });
+    const kittiesApi = await KittiesAPI.deploy(providers, {});
     expect(kittiesApi).not.toBeNull();
 
     // Get initial kitties count
@@ -96,22 +174,27 @@ describe('API', () => {
     await providers.privateStateProvider.clear();
 
     // Deploy a new contract for this test
-    const kittiesApi = await KittiesAPI.deploy(providers, { value: 0 });
+    const kittiesApi = await KittiesAPI.deploy(providers, {});
     expect(kittiesApi).not.toBeNull();
 
-    // Get wallet address to check ownership
-    const walletAddress = providers.walletProvider.coinPublicKey;
-    const ownerBytes = { bytes: new Uint8Array(walletAddress as any) };
-
-    // Initially, no kitties should exist
-    const initialUserKitties = await kittiesApi.getUserKitties(ownerBytes);
-    expect(initialUserKitties.length).toBe(0);
+    // Test Bech32m conversion
+    const walletBytes = { bytes: getWalletPublicKeyBytes(providers) };
+    console.log('Converted wallet bytes:', walletBytes.bytes);
+    console.log('Original coinPublicKey:', providers.walletProvider.coinPublicKey);
 
     // Create first kitty
     await kittiesApi.createKitty();
     
-    // Check user now has one kitty
-    const userKittiesAfterFirst = await kittiesApi.getUserKitties(ownerBytes);
+    // Get the actual owner from the kitty itself
+    const kitty1 = await kittiesApi.getKitty(BigInt(1));
+    const actualOwner = kitty1.owner;
+    
+    console.log('Actual owner from kitty:', actualOwner.bytes);
+    console.log('Converted wallet matches actual:', 
+      Buffer.from(walletBytes.bytes).equals(Buffer.from(actualOwner.bytes)));
+    
+    // Use the converted wallet bytes to test getUserKitties
+    const userKittiesAfterFirst = await kittiesApi.getUserKitties(walletBytes);
     expect(userKittiesAfterFirst.length).toBe(1);
     expect(userKittiesAfterFirst[0].id).toEqual(BigInt(1));
     expect(userKittiesAfterFirst[0].generation).toEqual(BigInt(0));
@@ -120,7 +203,7 @@ describe('API', () => {
     await kittiesApi.createKitty();
     
     // Check user now has two kitties
-    const userKittiesAfterSecond = await kittiesApi.getUserKitties(ownerBytes);
+    const userKittiesAfterSecond = await kittiesApi.getUserKitties(walletBytes);
     expect(userKittiesAfterSecond.length).toBe(2);
     
     // Total count should be 2
@@ -136,7 +219,7 @@ describe('API', () => {
     await providers.privateStateProvider.clear();
 
     // Deploy a new contract for this test
-    const kittiesApi = await KittiesAPI.deploy(providers, { value: 0 });
+    const kittiesApi = await KittiesAPI.deploy(providers, {});
 
     // Create a kitty
     await kittiesApi.createKitty();
@@ -179,7 +262,7 @@ describe('API', () => {
     await providers.privateStateProvider.clear();
 
     // Deploy a new contract for this test
-    const kittiesApi = await KittiesAPI.deploy(providers, { value: 0 });
+    const kittiesApi = await KittiesAPI.deploy(providers, {});
 
     // Create two parent kitties
     await kittiesApi.createKitty(); // Kitty 1
@@ -211,8 +294,11 @@ describe('API', () => {
     await providers.privateStateProvider.clear();
 
     // Deploy a new contract for this test
-    const kittiesApi = await KittiesAPI.deploy(providers, { value: 0 });
-
+    const kittiesApi = await KittiesAPI.deploy(providers, {});
+    
+    // Get wallet address using proper Bech32m conversion
+    const walletBytes = { bytes: getWalletPublicKeyBytes(providers) };
+    
     // Create a test address for ownership operations
     const testAddress = { bytes: new Uint8Array(32).fill(1) };
 
@@ -223,10 +309,20 @@ describe('API', () => {
     // Create first kitty
     await kittiesApi.createKitty();
 
-    // Get the owner of the first kitty
+    // Get the owner of the first kitty and verify it matches our wallet
     const owner = await kittiesApi.ownerOf(BigInt(1));
+    
+    console.log('Owner from contract:', owner.bytes);
+    console.log('Converted wallet bytes:', walletBytes.bytes);
+    console.log('Wallet coinPublicKey:', providers.walletProvider.coinPublicKey);
+    
     expect(owner).toBeDefined();
     expect(owner.bytes).toBeInstanceOf(Uint8Array);
+    expect(owner.bytes).toEqual(walletBytes.bytes);
+
+    // Check wallet balance
+    const walletBalance = await kittiesApi.balanceOf(walletBytes);
+    expect(walletBalance).toEqual(BigInt(1));
 
     // Try to transfer the kitty to the test address
     await kittiesApi.transferKitty({ to: testAddress, kittyId: BigInt(1) });
@@ -238,6 +334,10 @@ describe('API', () => {
     // Check balance of test address
     const balanceAfterTransfer = await kittiesApi.balanceOf(testAddress);
     expect(balanceAfterTransfer).toEqual(BigInt(1));
+
+    // Check wallet balance is now 0
+    const walletBalanceAfter = await kittiesApi.balanceOf(walletBytes);
+    expect(walletBalanceAfter).toEqual(BigInt(0));
 
     // Create another kitty and check total supply
     await kittiesApi.createKitty();
