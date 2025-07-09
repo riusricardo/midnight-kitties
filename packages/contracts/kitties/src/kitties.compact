@@ -60,8 +60,21 @@ export struct Kitty {
   generation: Uint<32>       // Generation number (0 for original, increments with breeding)
 }
 
+
+export struct Offer {
+  kittyId: Uint<64>,
+  buyer: ZswapCoinPublicKey,    
+  price: Uint<64>
+}
+
+
 // Mapping from kitty ID to kitty data.
 export ledger kitties: Map<Uint<64>, Kitty>;
+
+// Mapping for kitty ID to offer ID to offer data.
+export ledger buyKittyOffers: Map<Uint<64>, Map<Uint<64>, Offer>>;
+
+export ledger kiittyOffersCount: Map<Uint<64>, Counter>;
 
 // Counter to track the total number of kitties created.
 export ledger allKittiesCount: Counter;
@@ -213,9 +226,42 @@ export circuit buyKitty(kittyId: Uint<64>, bidPrice: Uint<64>): [] {
   // Ensure the bid price is sufficient.
   assert(bidPrice >= kitty.price, "Bid price too low");
   
-  // Note: In a real implementation, currency transfer would occur here.
+  // Note: In a real implementation, currency transfer to the vault would occur here.
   // For now, only transfer the kitty ownership.
-  
+
+  // Initialize the inner map if it doesn't exist
+  if (!buyKittyOffers.member(disclose(kittyId))) {
+    buyKittyOffers.insert(disclose(kittyId), default<Map<Uint<64>, Offer>>);
+  }
+
+  // get the kitty counter for offers
+  kittyOffersCount.lookup(disclose(kittyId))
+
+  const newOffer = Offer {
+    kittyId: kittyId,
+    buyer: buyer,
+    price: bidPrice
+  }
+
+  // CONSIDER USING A VECTOR or array.
+  if (!buyKittyOffers.lookup(disclose(kittyId)).member(KITTY_OFFER_COUNT)) {
+    buyKittyOffers.lookup(disclose(kittyId)).insert(KITTY_OFFER_COUNT, newOffer);
+  }
+
+
+}
+
+// The token owner agrees to the offered price and transfers the token.
+export circuit approveOffer(kittyId: Uint<64>, from: ZswapCoinPublicKey): [] {
+
+  // 
+  // buyKittyOffers.lookup(disclose(kittyId)).lookup(from)
+
+  const buyer = ownPublicKey();
+  // Retrieve the kitty data.
+  const kitty = kitties.lookup(disclose(kittyId));
+  const seller = kitty.owner;
+
   // Update the kitty's owner and reset sale status.
   const updatedKitty = Kitty {
     dna: kitty.dna,
@@ -224,6 +270,8 @@ export circuit buyKitty(kittyId: Uint<64>, bidPrice: Uint<64>): [] {
     price: 0,
     forSale: false,
     generation: kitty.generation
+
+
   };
   
   kitties.insert(disclose(kittyId), disclose(updatedKitty));
