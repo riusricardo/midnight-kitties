@@ -19,6 +19,8 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+import type { Gender } from '@midnight-ntwrk/kitties-contract';
+
 /**
  * Generate random bytes for various purposes (DNA generation, etc.)
  * @param length - The number of bytes to generate
@@ -112,4 +114,133 @@ export function formatPrice(price: bigint): number {
  */
 export function isKittyForSale(price: bigint, forSale: boolean): boolean {
   return forSale && price > 0n;
+}
+
+/**
+ * Format a gender enum value to a readable string
+ * @param gender - The gender enum value from the contract
+ * @returns A readable gender string
+ */
+export function formatGenderEnum(gender: Gender): string {
+  if (typeof gender === 'object') {
+    if ('Male' in gender) return 'Male';
+    if ('Female' in gender) return 'Female';
+  }
+  if (typeof gender === 'number') {
+    return gender === 0 ? 'Male' : 'Female';
+  }
+  return 'Unknown';
+}
+
+/**
+ * Format a Uint8Array address to hex string for display
+ * @param bytes - The address bytes
+ * @returns A hex string representation of the address
+ */
+export function formatAddress(bytes: Uint8Array): string {
+  return (
+    '0x' +
+    Array.from(bytes)
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('')
+  );
+}
+
+/**
+ * Parse a bigint from user input string
+ * @param input - The input string
+ * @returns The parsed bigint
+ * @throws Error if the input is not a valid number
+ */
+export function parseBigInt(input: string): bigint {
+  try {
+    return BigInt(input);
+  } catch {
+    throw new Error(`Invalid number: ${input}`);
+  }
+}
+
+/**
+ * Parse a hex address from user input
+ * @param input - The input hex string (with or without 0x prefix)
+ * @returns A Uint8Array representing the address
+ * @throws Error if the input is not a valid hex string
+ */
+export function parseAddress(input: string): Uint8Array {
+  try {
+    const hex = input.startsWith('0x') ? input.slice(2) : input;
+    if (hex.length % 2 !== 0) {
+      throw new Error('Invalid hex string length');
+    }
+    const bytes = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < hex.length; i += 2) {
+      bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+    }
+    return bytes;
+  } catch {
+    throw new Error(`Invalid address format: ${input}`);
+  }
+}
+
+/**
+ * Format a generation number for display
+ * @param generation - The generation number as bigint
+ * @returns The generation as a readable string
+ */
+export function formatGeneration(generation: bigint): string {
+  return `Gen ${generation}`;
+}
+
+/**
+ * Format for sale status for display
+ * @param forSale - Whether the kitty is for sale
+ * @returns A readable for sale status
+ */
+export function formatForSale(forSale: boolean): string {
+  return forSale ? 'Yes' : 'No';
+}
+
+/**
+ * Format a contract address for display
+ * @param address - The contract address (string or other type)
+ * @returns A formatted address string
+ */
+export function formatContractAddress(address: string | any): string {
+  if (typeof address === 'string') {
+    return address.startsWith('0x') ? address : `0x${address}`;
+  }
+  return String(address);
+}
+
+/**
+ * Format a total count for display
+ * @param count - The count as any type
+ * @returns A formatted count string
+ */
+export function formatCount(count: any): string {
+  return String(count);
+}
+
+/**
+ * Safe wrapper for parseBigInt to handle potential errors
+ * @param input - The input string to parse
+ * @returns The parsed bigint or throws an error
+ */
+export function safeParseBigInt(input: string): bigint {
+  if (!input || typeof input !== 'string') {
+    throw new Error('Input must be a non-empty string');
+  }
+  return parseBigInt(input);
+}
+
+/**
+ * Safe wrapper for parseAddress to handle potential errors
+ * @param input - The input string to parse
+ * @returns The parsed address or throws an error
+ */
+export function safeParseAddress(input: string): Uint8Array {
+  if (!input || typeof input !== 'string') {
+    throw new Error('Input must be a non-empty string');
+  }
+  return parseAddress(input);
 }

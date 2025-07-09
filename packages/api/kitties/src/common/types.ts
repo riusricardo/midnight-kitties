@@ -42,7 +42,7 @@ export type KittiesProviders = MidnightProviders<
 export type DeployedKittiesContract = DeployedContract<KittiesContract> | FoundContract<KittiesContract>;
 
 // Re-export types from the contract
-export type { Ledger, Kitty , Gender } from '@midnight-ntwrk/kitties-contract';
+export type { Ledger, Kitty, Gender } from '@midnight-ntwrk/kitties-contract';
 
 // Helper types for API methods
 export interface KittyData {

@@ -38,9 +38,9 @@ import { deployContract, findDeployedContract } from '@midnight-ntwrk/midnight-j
 import { assertIsContractAddress, toHex } from '@midnight-ntwrk/midnight-js-utils';
 import type { PrivateStateProvider } from '@midnight-ntwrk/midnight-js-types';
 import { map, type Observable, retry } from 'rxjs';
-import { 
-  type KittiesContract, 
-  type KittiesProviders, 
+import {
+  type KittiesContract,
+  type KittiesProviders,
   type DeployedKittiesContract,
   type KittyData,
   type KittyListingData,
@@ -62,7 +62,7 @@ const kittiesContractInstance: KittiesContract = new Kitties.Contract(witnesses)
 export interface DeployedKittiesAPI {
   readonly deployedContractAddress: ContractAddress;
   readonly state$: Observable<KittiesState>;
-  
+
   // Kitty-specific operations
   readonly createKitty: () => Promise<void>;
   readonly transferKitty: (params: TransferKittyParams) => Promise<void>;
@@ -73,7 +73,7 @@ export interface DeployedKittiesAPI {
   readonly getAllKittiesCount: () => Promise<bigint>;
   readonly getKittiesForSale: () => Promise<KittyListingData[]>;
   readonly getUserKitties: (owner: { bytes: Uint8Array }) => Promise<KittyData[]>;
-  
+
   // NFT standard operations
   readonly balanceOf: (owner: { bytes: Uint8Array }) => Promise<bigint>;
   readonly ownerOf: (tokenId: bigint) => Promise<{ bytes: Uint8Array }>;
@@ -187,10 +187,10 @@ export class KittiesAPI implements DeployedKittiesAPI {
     if (!contractState) {
       return [];
     }
-    
+
     const ledgerState = Kitties.ledger(contractState.data);
     const forSaleKitties: KittyListingData[] = [];
-    
+
     for (const [kittyId, kitty] of ledgerState.kitties) {
       if (kitty.forSale) {
         forSaleKitties.push({
@@ -207,7 +207,7 @@ export class KittiesAPI implements DeployedKittiesAPI {
         });
       }
     }
-    
+
     console.log(`Found ${forSaleKitties.length} kitties for sale`);
     return forSaleKitties;
   }
@@ -218,10 +218,10 @@ export class KittiesAPI implements DeployedKittiesAPI {
     if (!contractState) {
       return [];
     }
-    
+
     const ledgerState = Kitties.ledger(contractState.data);
     const userKitties: KittyData[] = [];
-    
+
     for (const [kittyId, kitty] of ledgerState.kitties) {
       if (toHex(kitty.owner.bytes) === toHex(owner.bytes)) {
         userKitties.push({
@@ -235,7 +235,7 @@ export class KittiesAPI implements DeployedKittiesAPI {
         });
       }
     }
-    
+
     console.log(`Found ${userKitties.length} kitties for user`);
     return userKitties;
   }
@@ -269,7 +269,9 @@ export class KittiesAPI implements DeployedKittiesAPI {
   }
 
   async setApprovalForAll(params: NFTSetApprovalForAllParams): Promise<void> {
-    console.log(`Setting approval for all tokens - operator: ${toHex(params.operator.bytes)}, approved: ${params.approved}...`);
+    console.log(
+      `Setting approval for all tokens - operator: ${toHex(params.operator.bytes)}, approved: ${params.approved}...`,
+    );
     const finalizedTxData = await this.deployedContract.callTx.setApprovalForAll(params.operator, params.approved);
     console.log(`Approval for all set! Transaction added in block ${finalizedTxData.public.blockHeight}`);
   }
@@ -287,7 +289,9 @@ export class KittiesAPI implements DeployedKittiesAPI {
   }
 
   async transferFrom(params: NFTTransferFromParams): Promise<void> {
-    console.log(`Transferring token ${params.tokenId} from ${toHex(params.from.bytes)} to ${toHex(params.to.bytes)}...`);
+    console.log(
+      `Transferring token ${params.tokenId} from ${toHex(params.from.bytes)} to ${toHex(params.to.bytes)}...`,
+    );
     const finalizedTxData = await this.deployedContract.callTx.transferFrom(params.from, params.to, params.tokenId);
     console.log(`Token transferred! Transaction added in block ${finalizedTxData.public.blockHeight}`);
   }
@@ -570,7 +574,7 @@ export class KittiesAPI implements DeployedKittiesAPI {
   static async transferKitty(kittiesApi: KittiesAPI, params: TransferKittyParams): Promise<TransactionResponse> {
     console.log(`Transferring kitty ${params.kittyId} to ${toHex(params.to.bytes)}...`);
     const finalizedTxData = await kittiesApi.deployedContract.callTx.transferKitty(params.to, params.kittyId);
-    
+
     return {
       txId: (finalizedTxData as any).public?.txId,
       txHash: (finalizedTxData as any).public?.txHash,
@@ -587,7 +591,7 @@ export class KittiesAPI implements DeployedKittiesAPI {
   static async setPrice(kittiesApi: KittiesAPI, params: SetPriceParams): Promise<TransactionResponse> {
     console.log(`Setting price for kitty ${params.kittyId} to ${params.price}...`);
     const finalizedTxData = await kittiesApi.deployedContract.callTx.setPrice(params.kittyId, params.price);
-    
+
     return {
       txId: (finalizedTxData as any).public?.txId,
       txHash: (finalizedTxData as any).public?.txHash,
@@ -604,7 +608,7 @@ export class KittiesAPI implements DeployedKittiesAPI {
   static async buyKitty(kittiesApi: KittiesAPI, params: BuyKittyParams): Promise<TransactionResponse> {
     console.log(`Buying kitty ${params.kittyId} for ${params.bidPrice}...`);
     const finalizedTxData = await kittiesApi.deployedContract.callTx.buyKitty(params.kittyId, params.bidPrice);
-    
+
     return {
       txId: (finalizedTxData as any).public?.txId,
       txHash: (finalizedTxData as any).public?.txHash,
@@ -621,7 +625,7 @@ export class KittiesAPI implements DeployedKittiesAPI {
   static async breedKitty(kittiesApi: KittiesAPI, params: BreedKittyParams): Promise<TransactionResponse> {
     console.log(`Breeding kitties ${params.kittyId1} and ${params.kittyId2}...`);
     const finalizedTxData = await kittiesApi.deployedContract.callTx.breedKitty(params.kittyId1, params.kittyId2);
-    
+
     return {
       txId: (finalizedTxData as any).public?.txId,
       txHash: (finalizedTxData as any).public?.txHash,
@@ -666,7 +670,6 @@ export class KittiesAPI implements DeployedKittiesAPI {
   static async getUserKitties(kittiesApi: KittiesAPI, owner: { bytes: Uint8Array }): Promise<KittyData[]> {
     return await kittiesApi.getUserKitties(owner);
   }
-
 }
 
 // Exports for compatibility

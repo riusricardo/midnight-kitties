@@ -61,7 +61,7 @@ describe('API', () => {
     await testEnvironment.shutdown();
   });
 
-  it('should deploy the contract and require valid credentials to increment [@slow]', async () => {
+  it('should deploy the contract and create kitties [@slow]', async () => {
     // Clear any existing private state to ensure clean test
     await providers.privateStateProvider.clear();
 
@@ -69,45 +69,29 @@ describe('API', () => {
     const kittiesApi = await KittiesAPI.deploy(providers, { value: 0 });
     expect(kittiesApi).not.toBeNull();
 
-    // Get initial kitties value using new unified API
-    const kitties = await KittiesAPI.getKittiesInfo(kittiesApi);
-    expect(kitties.kittiesValue).toEqual(BigInt(0));
+    // Get initial kitties count
+    const initialCount = await kittiesApi.getAllKittiesCount();
+    expect(initialCount).toEqual(BigInt(0));
 
-    // Initially, trying to increment without credentials should fail with error
-    await expect(KittiesAPI.incrementWithTxInfo(kittiesApi)).rejects.toThrow(/First name cannot be empty/);
+    // Create a new kitty
+    await kittiesApi.createKitty();
 
-    // Kitties should still be 0 after failed attempt
-    const kittiesAfterFailedAttempt = await KittiesAPI.getKittiesInfo(kittiesApi);
-    expect(kittiesAfterFailedAttempt.kittiesValue).toEqual(BigInt(0));
+    // Kitties count should now be 1
+    const countAfterCreate = await kittiesApi.getAllKittiesCount();
+    expect(countAfterCreate).toEqual(BigInt(1));
 
-    // Now set up valid credentials for a user over 21
-    const validCredential = {
-      id: new Uint8Array(32).fill(1),
-      first_name: new Uint8Array(32).fill(2),
-      last_name: new Uint8Array(32).fill(3),
-      birth_timestamp: BigInt(Date.now() - 25 * 365 * 24 * 60 * 60 * 1000), // 25 years old
-    };
-
-    await kittiesApi.updateCredentialSubject(validCredential);
-
-    // Verify user is now verified
-    const isVerified = await kittiesApi.isUserVerified();
-    expect(isVerified).toBe(true);
-
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    // Now increment should work with valid credentials
-    const response = await KittiesAPI.incrementWithTxInfo(kittiesApi);
-    expect(response.txHash || response.txId).toMatch(/[0-9a-f]{64}/);
-    expect(response.blockHeight).toBeGreaterThan(BigInt(0));
-
-    // Get kitties value after successful increment
-    const kittiesAfter = await KittiesAPI.getKittiesInfo(kittiesApi);
-    expect(kittiesAfter.kittiesValue).toEqual(BigInt(1));
-    expect(kittiesAfter.contractAddress).toEqual(kitties.contractAddress);
+    // Get the created kitty
+    const kitty = await kittiesApi.getKitty(BigInt(1));
+    expect(kitty).not.toBeNull();
+    expect(kitty.id).toEqual(BigInt(1));
+    expect(kitty.dna).toBeDefined();
+    expect(kitty.gender).toBeDefined();
+    expect(kitty.generation).toEqual(BigInt(0)); // First generation
+    expect(kitty.forSale).toBe(false); // Not for sale initially
+    expect(kitty.price).toEqual(BigInt(0)); // No price set initially
   });
 
-  it('should store and retrieve credential subject in KittiesPrivateState [@slow]', async () => {
+  it('should create multiple kitties and track ownership [@slow]', async () => {
     // Clear any existing private state to ensure clean test
     await providers.privateStateProvider.clear();
 
@@ -115,177 +99,149 @@ describe('API', () => {
     const kittiesApi = await KittiesAPI.deploy(providers, { value: 0 });
     expect(kittiesApi).not.toBeNull();
 
-    // Create test credential data matching the CredentialSubject structure
-    const testCredentialSubject = {
-      id: new Uint8Array(32).fill(1), // Test ID
-      first_name: new TextEncoder().encode('TestUser').slice(0, 32), // Encode and pad to 32 bytes
-      last_name: new TextEncoder().encode('TestLastName').slice(0, 32), // Encode and pad to 32 bytes
-      birth_timestamp: BigInt(Date.now() - 25 * 365 * 24 * 60 * 60 * 1000), // 25 years ago - over 21
-    };
+    // Get wallet address to check ownership
+    const walletAddress = providers.walletProvider.coinPublicKey;
+    const ownerBytes = { bytes: new Uint8Array(walletAddress as any) };
 
-    // Pad the byte arrays to 32 bytes
-    const paddedFirstName = new Uint8Array(32);
-    paddedFirstName.set(testCredentialSubject.first_name);
+    // Initially, no kitties should exist
+    const initialUserKitties = await kittiesApi.getUserKitties(ownerBytes);
+    expect(initialUserKitties.length).toBe(0);
 
-    const paddedLastName = new Uint8Array(32);
-    paddedLastName.set(testCredentialSubject.last_name);
+    // Create first kitty
+    await kittiesApi.createKitty();
+    
+    // Check user now has one kitty
+    const userKittiesAfterFirst = await kittiesApi.getUserKitties(ownerBytes);
+    expect(userKittiesAfterFirst.length).toBe(1);
+    expect(userKittiesAfterFirst[0].id).toEqual(BigInt(1));
+    expect(userKittiesAfterFirst[0].generation).toEqual(BigInt(0));
 
-    const finalCredentialSubject = {
-      id: testCredentialSubject.id,
-      first_name: paddedFirstName,
-      last_name: paddedLastName,
-      birth_timestamp: testCredentialSubject.birth_timestamp,
-    };
+    // Create second kitty
+    await kittiesApi.createKitty();
+    
+    // Check user now has two kitties
+    const userKittiesAfterSecond = await kittiesApi.getUserKitties(ownerBytes);
+    expect(userKittiesAfterSecond.length).toBe(2);
+    
+    // Total count should be 2
+    const totalCount = await kittiesApi.getAllKittiesCount();
+    expect(totalCount).toEqual(BigInt(2));
 
-    // Initially, no credential subject should exist
-    const initialCredential = await kittiesApi.getCredentialSubject();
-    expect(initialCredential).toBeNull();
-
-    // User should not be verified initially
-    const initialVerification = await kittiesApi.isUserVerified();
-    expect(initialVerification).toBe(false);
-
-    // Update the credential subject
-    await kittiesApi.updateCredentialSubject(finalCredentialSubject);
-
-    // Retrieve the credential subject
-    const retrievedCredential = await kittiesApi.getCredentialSubject();
-    expect(retrievedCredential).not.toBeNull();
-    expect(retrievedCredential.id).toEqual(finalCredentialSubject.id);
-    expect(retrievedCredential.first_name).toEqual(finalCredentialSubject.first_name);
-    expect(retrievedCredential.last_name).toEqual(finalCredentialSubject.last_name);
-    expect(retrievedCredential.birth_timestamp).toEqual(finalCredentialSubject.birth_timestamp);
-
-    // User should now be verified (over 21)
-    const finalVerification = await kittiesApi.isUserVerified();
-    expect(finalVerification).toBe(true);
-
-    // Test that the private state persists across API calls
-    const retrievedAgain = await kittiesApi.getCredentialSubject();
-    expect(retrievedAgain).toEqual(retrievedCredential);
+    // Test that the kitties have different DNA (random generation)
+    expect(userKittiesAfterSecond[0].dna).not.toEqual(userKittiesAfterSecond[1].dna);
   });
 
-  it('should correctly validate age verification with 21+ requirement [@slow]', async () => {
+  it('should handle kitty pricing and sales [@slow]', async () => {
     // Clear any existing private state to ensure clean test
     await providers.privateStateProvider.clear();
 
     // Deploy a new contract for this test
     const kittiesApi = await KittiesAPI.deploy(providers, { value: 0 });
 
-    // Test with under-age user (20 years old - under 21)
-    const underageCredential = {
-      id: new Uint8Array(32).fill(2),
-      first_name: new Uint8Array(32).fill(0),
-      last_name: new Uint8Array(32).fill(0),
-      birth_timestamp: BigInt(Date.now() - 20 * 365 * 24 * 60 * 60 * 1000), // 20 years ago - under 21
-    };
+    // Create a kitty
+    await kittiesApi.createKitty();
 
-    await kittiesApi.updateCredentialSubject(underageCredential);
-    const underageVerification = await kittiesApi.isUserVerified();
-    expect(underageVerification).toBe(false);
+    // Get the created kitty
+    const kitty = await kittiesApi.getKitty(BigInt(1));
+    expect(kitty.forSale).toBe(false);
+    expect(kitty.price).toEqual(BigInt(0));
 
-    // Test with legal age user (22 years old - over 21)
-    const legalAgeCredential = {
-      id: new Uint8Array(32).fill(3),
-      first_name: new Uint8Array(32).fill(0),
-      last_name: new Uint8Array(32).fill(0),
-      birth_timestamp: BigInt(Date.now() - 22 * 365 * 24 * 60 * 60 * 1000), // 22 years ago - over 21
-    };
+    // Set a price for the kitty
+    const price = BigInt(100);
+    await kittiesApi.setPrice({ kittyId: BigInt(1), price });
 
-    await kittiesApi.updateCredentialSubject(legalAgeCredential);
-    const legalAgeVerification = await kittiesApi.isUserVerified();
-    expect(legalAgeVerification).toBe(true);
+    // Get the kitty after setting price
+    const kittyAfterPrice = await kittiesApi.getKitty(BigInt(1));
+    expect(kittyAfterPrice.forSale).toBe(true);
+    expect(kittyAfterPrice.price).toEqual(price);
+
+    // Check that the kitty appears in the for sale list
+    const forSaleKitties = await kittiesApi.getKittiesForSale();
+    expect(forSaleKitties.length).toBe(1);
+    expect(forSaleKitties[0].kitty.id).toEqual(BigInt(1));
+    expect(forSaleKitties[0].kitty.price).toEqual(price);
+
+    // Remove from sale by setting price to 0
+    await kittiesApi.setPrice({ kittyId: BigInt(1), price: BigInt(0) });
+
+    // Get the kitty after removing from sale
+    const kittyAfterRemoval = await kittiesApi.getKitty(BigInt(1));
+    expect(kittyAfterRemoval.forSale).toBe(false);
+    expect(kittyAfterRemoval.price).toEqual(BigInt(0));
+
+    // Check that the kitty no longer appears in the for sale list
+    const forSaleKittiesAfterRemoval = await kittiesApi.getKittiesForSale();
+    expect(forSaleKittiesAfterRemoval.length).toBe(0);
   });
 
-  it('should prevent credential fraud attempts [@slow]', async () => {
+  it('should handle kitty breeding [@slow]', async () => {
     // Clear any existing private state to ensure clean test
     await providers.privateStateProvider.clear();
 
     // Deploy a new contract for this test
     const kittiesApi = await KittiesAPI.deploy(providers, { value: 0 });
 
-    // User initially tries with underage credentials (19 years old)
-    const underageCredential = {
-      id: new Uint8Array(32).fill(1),
-      first_name: new Uint8Array(32).fill(2),
-      last_name: new Uint8Array(32).fill(3),
-      birth_timestamp: BigInt(Date.now() - 19 * 365 * 24 * 60 * 60 * 1000), // 19 years old - under 21
-    };
+    // Create two parent kitties
+    await kittiesApi.createKitty(); // Kitty 1
+    await kittiesApi.createKitty(); // Kitty 2
 
-    await kittiesApi.updateCredentialSubject(underageCredential);
+    // Get the parent kitties
+    const parent1 = await kittiesApi.getKitty(BigInt(1));
+    const parent2 = await kittiesApi.getKitty(BigInt(2));
+    
+    expect(parent1.generation).toEqual(BigInt(0));
+    expect(parent2.generation).toEqual(BigInt(0));
 
-    // Verify user is not verified due to age
-    const underageVerification = await kittiesApi.isUserVerified();
-    expect(underageVerification).toBe(false);
+    // Breed the two kitties
+    await kittiesApi.breedKitty({ kittyId1: BigInt(1), kittyId2: BigInt(2) });
 
-    // Get initial kitties value
-    const initialKitties = await KittiesAPI.getKittiesInfo(kittiesApi);
-    expect(initialKitties.kittiesValue).toEqual(BigInt(0));
+    // Check that a new kitty was created
+    const totalCount = await kittiesApi.getAllKittiesCount();
+    expect(totalCount).toEqual(BigInt(3));
 
-    // Underage user tries to increment - based on smart contract behavior,
-    // this should succeed but not increment the kitties (round stays 0)
-    await KittiesAPI.incrementWithTxInfo(kittiesApi);
-
-    // Kitties should still be 0 since user is underage
-    const kittiesAfterUnderage = await KittiesAPI.getKittiesInfo(kittiesApi);
-    expect(kittiesAfterUnderage.kittiesValue).toEqual(BigInt(0));
-
-    // Now user tries to "update" their birth timestamp to appear older
-    // but keeps the same ID (fraudulent attempt)
-    const fraudulentCredential = {
-      id: new Uint8Array(32).fill(1), // Same ID as before
-      first_name: new Uint8Array(32).fill(2),
-      last_name: new Uint8Array(32).fill(3),
-      birth_timestamp: BigInt(Date.now() - 25 * 365 * 24 * 60 * 60 * 1000), // Now claims to be 25 years old
-    };
-
-    await kittiesApi.updateCredentialSubject(fraudulentCredential);
-
-    // This should fail when trying to increment due to credential hash mismatch
-    await expect(KittiesAPI.incrementWithTxInfo(kittiesApi)).rejects.toThrow();
-
-    // Kitties should still be 0
-    const finalKitties = await KittiesAPI.getKittiesInfo(kittiesApi);
-    expect(finalKitties.kittiesValue).toEqual(BigInt(0));
+    // Get the child kitty
+    const child = await kittiesApi.getKitty(BigInt(3));
+    expect(child.generation).toEqual(BigInt(1)); // Should be generation 1
+    expect(child.dna).not.toEqual(parent1.dna); // Should have different DNA
+    expect(child.dna).not.toEqual(parent2.dna); // Should have different DNA
   });
 
-  it('should allow same user to increment multiple times with consistent credentials [@slow]', async () => {
+  it('should handle NFT standard operations [@slow]', async () => {
     // Clear any existing private state to ensure clean test
     await providers.privateStateProvider.clear();
 
     // Deploy a new contract for this test
     const kittiesApi = await KittiesAPI.deploy(providers, { value: 0 });
 
-    // User with valid credentials
-    const userCredential = {
-      id: new Uint8Array(32).fill(1),
-      first_name: new Uint8Array(32).fill(2),
-      last_name: new Uint8Array(32).fill(3),
-      birth_timestamp: BigInt(Date.now() - 25 * 365 * 24 * 60 * 60 * 1000), // 25 years old
-    };
+    // Create a test address for ownership operations
+    const testAddress = { bytes: new Uint8Array(32).fill(1) };
 
-    await kittiesApi.updateCredentialSubject(userCredential);
+    // Initially, balance should be 0
+    const initialBalance = await kittiesApi.balanceOf(testAddress);
+    expect(initialBalance).toEqual(BigInt(0));
 
-    // Verify user is verified
-    const verification = await kittiesApi.isUserVerified();
-    expect(verification).toBe(true);
+    // Create first kitty
+    await kittiesApi.createKitty();
 
-    // First increment
-    await KittiesAPI.incrementWithTxInfo(kittiesApi);
-    const kittiesAfterFirst = await KittiesAPI.getKittiesInfo(kittiesApi);
-    expect(kittiesAfterFirst.kittiesValue).toEqual(BigInt(1));
+    // Get the owner of the first kitty
+    const owner = await kittiesApi.ownerOf(BigInt(1));
+    expect(owner).toBeDefined();
+    expect(owner.bytes).toBeInstanceOf(Uint8Array);
 
-    // Same user sets same credentials again (simulating returning user)
-    await kittiesApi.updateCredentialSubject(userCredential);
+    // Try to transfer the kitty to the test address
+    await kittiesApi.transferKitty({ to: testAddress, kittyId: BigInt(1) });
 
-    // Second increment with same credentials should work
-    await KittiesAPI.incrementWithTxInfo(kittiesApi);
-    const kittiesAfterSecond = await KittiesAPI.getKittiesInfo(kittiesApi);
-    expect(kittiesAfterSecond.kittiesValue).toEqual(BigInt(2));
+    // Verify the transfer worked
+    const newOwner = await kittiesApi.ownerOf(BigInt(1));
+    expect(newOwner.bytes).toEqual(testAddress.bytes);
 
-    // Third increment
-    await KittiesAPI.incrementWithTxInfo(kittiesApi);
-    const kittiesAfterThird = await KittiesAPI.getKittiesInfo(kittiesApi);
-    expect(kittiesAfterThird.kittiesValue).toEqual(BigInt(3));
+    // Check balance of test address
+    const balanceAfterTransfer = await kittiesApi.balanceOf(testAddress);
+    expect(balanceAfterTransfer).toEqual(BigInt(1));
+
+    // Create another kitty and check total supply
+    await kittiesApi.createKitty();
+    const totalSupply = await kittiesApi.getAllKittiesCount();
+    expect(totalSupply).toEqual(BigInt(2));
   });
 });
