@@ -54,8 +54,6 @@ import {
   type BreedKittyParams,
   type NFTApprovalParams,
   type NFTSetApprovalForAllParams,
-  type NFTTransferParams,
-  type NFTTransferFromParams,
 } from './types.js';
 
 // Single shared contract instance to ensure consistency
@@ -91,8 +89,6 @@ export interface DeployedKittiesAPI {
   readonly getApproved: (tokenId: bigint) => Promise<{ bytes: Uint8Array }>;
   readonly setApprovalForAll: (params: NFTSetApprovalForAllParams) => Promise<void>;
   readonly isApprovedForAll: (owner: { bytes: Uint8Array }, operator: { bytes: Uint8Array }) => Promise<boolean>;
-  readonly transfer: (params: NFTTransferParams) => Promise<void>;
-  readonly transferFrom: (params: NFTTransferFromParams) => Promise<void>;
 }
 
 export interface KittiesState {
@@ -345,20 +341,6 @@ export class KittiesAPI implements DeployedKittiesAPI {
     const response = await this.deployedContract.callTx.isApprovedForAll(owner, operator);
     const isApproved = (response as any).private.result;
     return isApproved;
-  }
-
-  async transfer(params: NFTTransferParams): Promise<void> {
-    console.log(`Transferring token ${params.tokenId} to ${toHex(params.to.bytes)}...`);
-    const finalizedTxData = await this.deployedContract.callTx.transfer(params.to, params.tokenId);
-    console.log(`Token transferred! Transaction added in block ${finalizedTxData.public.blockHeight}`);
-  }
-
-  async transferFrom(params: NFTTransferFromParams): Promise<void> {
-    console.log(
-      `Transferring token ${params.tokenId} from ${toHex(params.from.bytes)} to ${toHex(params.to.bytes)}...`,
-    );
-    const finalizedTxData = await this.deployedContract.callTx.transferFrom(params.from, params.to, params.tokenId);
-    console.log(`Token transferred! Transaction added in block ${finalizedTxData.public.blockHeight}`);
   }
 
   //  =====================================

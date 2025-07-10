@@ -267,23 +267,6 @@ export class KittiesSimulator {
     return result.result;
   }
 
-  /**
-   * Transfer token from one address to another
-   */
-  public transferFrom(
-    from: CoinPublicKey,
-    to: CoinPublicKey,
-    tokenId: bigint
-  ): void {
-    const result = this.contract.impureCircuits.transferFrom(
-      this.baseContext,
-      this.publicKeyToBytes(from),
-      this.publicKeyToBytes(to),
-      tokenId
-    );
-    this.baseContext = result.context;
-  }
-
   // === Utility Methods ===
 
   /**

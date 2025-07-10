@@ -95,17 +95,6 @@ export interface NFTSetApprovalForAllParams {
   approved: boolean;
 }
 
-export interface NFTTransferParams {
-  to: { bytes: Uint8Array };
-  tokenId: bigint;
-}
-
-export interface NFTTransferFromParams {
-  from: { bytes: Uint8Array };
-  to: { bytes: Uint8Array };
-  tokenId: bigint;
-}
-
 export interface ApproveOfferParams {
   kittyId: bigint;
   buyer: { bytes: Uint8Array };

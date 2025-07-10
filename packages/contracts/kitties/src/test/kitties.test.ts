@@ -363,11 +363,11 @@ describe("Kitties Contract Tests", () => {
     simulator.breedKitty(3n, 4n); // Kitty ID 5 (generation 2)
 
     // Check generations
-    expect(simulator.getKitty(1n).generation).toBe(0n); // Changed to bigint
-    expect(simulator.getKitty(2n).generation).toBe(0n); // Changed to bigint
-    expect(simulator.getKitty(3n).generation).toBe(1n); // Changed to bigint
-    expect(simulator.getKitty(4n).generation).toBe(0n); // Changed to bigint
-    expect(simulator.getKitty(5n).generation).toBe(2n); // max(1, 0) + 1 = 2, Changed to bigint
+    expect(simulator.getKitty(1n).generation).toBe(0n);
+    expect(simulator.getKitty(2n).generation).toBe(0n);
+    expect(simulator.getKitty(3n).generation).toBe(1n);
+    expect(simulator.getKitty(4n).generation).toBe(0n);
+    expect(simulator.getKitty(5n).generation).toBe(2n); // max(1, 0) + 1 = 2
 
     expect(simulator.getAllKittiesCount()).toBe(5n);
     expect(simulator.balanceOf(alice)).toBe(5n);
@@ -376,6 +376,7 @@ describe("Kitties Contract Tests", () => {
   it("should handle NFT approvals", () => {
     const simulator = new KittiesSimulator();
     const bob = simulator.createPublicKey("Bob");
+    const charlie = simulator.createPublicKey("Charlie");
 
     // Create a kitty (owned by default user Alice)
     simulator.createKitty();
@@ -386,6 +387,9 @@ describe("Kitties Contract Tests", () => {
     // Check approval
     const approved = simulator.getApproved(1n);
     expect(approved).toBe(bob);
+
+    // Bob transfers kitty to Charlie
+    simulator.transferKitty(charlie, 1n);
   });
 
   it("should handle operator approvals", () => {

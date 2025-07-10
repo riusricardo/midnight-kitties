@@ -407,9 +407,7 @@ NFT Operations:
   4. Check approved address for a token
   5. Set approval for all tokens
   6. Check if address is approved for all
-  7. Transfer token (direct)
-  8. Transfer token from address
-  9. Back to main menu
+  7. Back to main menu
 Which would you like to do? `;
 
 const nftOperations = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
@@ -435,12 +433,6 @@ const nftOperations = async (kittiesApi: KittiesAPI, rli: Interface): Promise<vo
         await checkApprovedForAll(kittiesApi, rli);
         break;
       case '7':
-        await transferToken(kittiesApi, rli);
-        break;
-      case '8':
-        await transferTokenFrom(kittiesApi, rli);
-        break;
-      case '9':
         logger.info('Returning to main menu...');
         return;
       default:
@@ -481,7 +473,7 @@ const approveToken = async (kittiesApi: KittiesAPI, rli: Interface): Promise<voi
     const tokenIdStr = await rli.question('Enter the token ID to approve: ');
     const tokenId = safeParseBigInt(tokenIdStr);
 
-    logger.info(`Approving ${toAddress} for token ${tokenId}...`);
+    logger.info(`Approving ${formatAddress(toAddress)} for token ${tokenId}...`);
     await kittiesApi.approve({ to: { bytes: toAddress }, tokenId });
     logger.info('✅ Token approved successfully!');
   } catch (error) {
@@ -509,7 +501,9 @@ const setApprovalForAll = async (kittiesApi: KittiesAPI, rli: Interface): Promis
     const approvedStr = await rli.question('Approve? (y/n): ');
     const approved = approvedStr.toLowerCase() === 'y' || approvedStr.toLowerCase() === 'yes';
 
-    logger.info(`Setting approval for all tokens - operator: ${operatorAddress}, approved: ${approved}...`);
+    logger.info(
+      `Setting approval for all tokens - operator: ${formatAddress(operatorAddress)}, approved: ${approved}...`,
+    );
     await kittiesApi.setApprovalForAll({ operator: { bytes: operatorAddress }, approved });
     logger.info('✅ Approval for all tokens set successfully!');
   } catch (error) {
@@ -527,45 +521,10 @@ const checkApprovedForAll = async (kittiesApi: KittiesAPI, rli: Interface): Prom
 
     const isApproved = await kittiesApi.isApprovedForAll({ bytes: ownerAddress }, { bytes: operatorAddress });
     logger.info(
-      `Operator ${operatorAddress} is ${isApproved ? 'approved' : 'not approved'} for all tokens of ${ownerAddress}`,
+      `Operator ${formatAddress(operatorAddress)} is ${isApproved ? 'approved' : 'not approved'} for all tokens of ${formatAddress(ownerAddress)}`,
     );
   } catch (error) {
     logger.error(`Failed to check approval for all: ${error instanceof Error ? error.message : String(error)}`);
-  }
-};
-
-const transferToken = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
-  try {
-    const toAddressStr = await rli.question('Enter the recipient address: ');
-    const toAddress = safeParseAddress(toAddressStr);
-
-    const tokenIdStr = await rli.question('Enter the token ID to transfer: ');
-    const tokenId = safeParseBigInt(tokenIdStr);
-
-    logger.info(`Transferring token ${tokenId} to ${toAddress}...`);
-    await kittiesApi.transfer({ to: { bytes: toAddress }, tokenId });
-    logger.info('✅ Token transferred successfully!');
-  } catch (error) {
-    logger.error(`Failed to transfer token: ${error instanceof Error ? error.message : String(error)}`);
-  }
-};
-
-const transferTokenFrom = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
-  try {
-    const fromAddressStr = await rli.question('Enter the sender address: ');
-    const fromAddress = safeParseAddress(fromAddressStr);
-
-    const toAddressStr = await rli.question('Enter the recipient address: ');
-    const toAddress = safeParseAddress(toAddressStr);
-
-    const tokenIdStr = await rli.question('Enter the token ID to transfer: ');
-    const tokenId = safeParseBigInt(tokenIdStr);
-
-    logger.info(`Transferring token ${tokenId} from ${fromAddress} to ${toAddress}...`);
-    await kittiesApi.transferFrom({ from: { bytes: fromAddress }, to: { bytes: toAddress }, tokenId });
-    logger.info('✅ Token transferred successfully!');
-  } catch (error) {
-    logger.error(`Failed to transfer token: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
 
