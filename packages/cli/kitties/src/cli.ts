@@ -37,10 +37,21 @@ import {
   buildFreshWallet,
   configureProviders,
 } from '@repo/kitties-api/node-api';
-import { setLogger, KittiesAPI } from '@repo/kitties-api/common-api';
+import { setLogger, KittiesAPI } from '@repo/kitties-api';
+import {
+  formatDNA,
+  formatGenderEnum,
+  formatAddress,
+  formatGeneration,
+  formatForSale,
+  formatPrice,
+  formatContractAddress,
+  formatCount,
+  safeParseBigInt,
+  safeParseAddress,
+  contractConfig,
+} from '@repo/kitties-api';
 import { NodeZkConfigProvider } from '@midnight-ntwrk/midnight-js-node-zk-config-provider';
-import { contractConfig } from '@repo/kitties-api';
-import type { CredentialSubject } from '@midnight-ntwrk/kitties-contract';
 
 let logger: Logger;
 
@@ -59,11 +70,19 @@ Which would you like to do? `;
 
 const MAIN_LOOP_QUESTION = `
 You can do one of the following:
-  1. Increment
-  2. Display current kitties value
-  3. Set/Update credential information
-  4. Check verification status
-  5. Exit
+  1. Create a new kitty
+  2. View my kitties
+  3. View kitties for sale
+  4. Transfer a kitty
+  5. Set kitty price
+  6. Buy a kitty
+  7. Breed kitties
+  8. View kitty details
+  9. View contract stats
+  10. View offers
+  11. Approve offer
+  12. NFT Operations
+  13. Exit
 Which would you like to do? `;
 
 const join = async (providers: KittiesProviders, rli: Interface): Promise<KittiesAPI | null> => {
@@ -76,157 +95,163 @@ const join = async (providers: KittiesProviders, rli: Interface): Promise<Kittie
   }
 };
 
-// Helper function to convert string to Uint8Array with padding
-const stringToUint8Array = (str: string, length: number = 32): Uint8Array => {
-  const utf8Bytes = Buffer.from(str, 'utf8');
-
-  if (utf8Bytes.length > length) {
-    throw new Error(`String "${str}" is too long. Maximum length is ${length} bytes.`);
-  }
-
-  const paddedArray = new Uint8Array(length);
-  paddedArray.set(utf8Bytes);
-  return paddedArray;
-};
-
-// Helper function to convert hex string to Uint8Array with padding
-const hexToUint8Array = (hexString: string, length: number = 32): Uint8Array => {
-  // Remove '0x' prefix if present
-  const cleanHex = hexString.startsWith('0x') ? hexString.slice(2) : hexString;
-
-  // Convert hex to bytes
-  const bytes = new Uint8Array(Math.ceil(cleanHex.length / 2));
-  for (let i = 0; i < cleanHex.length; i += 2) {
-    bytes[i / 2] = parseInt(cleanHex.substr(i, 2), 16);
-  }
-
-  // Pad or truncate to the desired length
-  const paddedArray = new Uint8Array(length);
-  paddedArray.set(bytes.slice(0, length));
-  return paddedArray;
-};
-
-// Helper function to get wallet public key from providers
-const getWalletPublicKey = async (providers: KittiesProviders): Promise<string> => {
+// Kitty operations
+const createKitty = async (kittiesApi: KittiesAPI): Promise<void> => {
   try {
-    // Access the coin public key from the wallet provider
-    const coinPublicKey = providers.walletProvider.coinPublicKey;
-
-    // Handle string case
-    if (typeof coinPublicKey === 'string') {
-      return coinPublicKey;
-    }
-
-    // Handle object case - use type assertion to bypass strict typing
-    if (coinPublicKey && typeof coinPublicKey === 'object') {
-      // Try to convert to string using various methods
-      try {
-        // Type assertion with proper type checking
-        const publicKeyObj = coinPublicKey as { toString?: () => string };
-        if (typeof publicKeyObj.toString === 'function') {
-          return String(publicKeyObj.toString());
-        }
-        // If toString fails, try JSON serialization
-        return JSON.stringify(coinPublicKey);
-      } catch {
-        // If toString fails, try JSON serialization
-        return JSON.stringify(coinPublicKey);
-      }
-    }
-
-    // Fallback: use a deterministic approach based on wallet address
-    return '0000000000000000000000000000000000000000000000000000000000000000';
-  } catch {
-    logger.warn('Could not retrieve wallet public key, using fallback method');
-    // Fallback: use a deterministic approach based on wallet address
-    return '0000000000000000000000000000000000000000000000000000000000000000';
+    logger.info('Creating a new kitty...');
+    await kittiesApi.createKitty();
+    logger.info('✅ Kitty created successfully!');
+  } catch (error) {
+    logger.error(`Failed to create kitty: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
 
-const setCredentials = async (kittiesApi: KittiesAPI, providers: KittiesProviders, rli: Interface): Promise<void> => {
+const viewMyKitties = async (kittiesApi: KittiesAPI): Promise<void> => {
   try {
-    logger.info('\n=== Setting Credential Information ===');
-    logger.info('Note: You must be at least 21 years old to increment the kitties.');
+    logger.info('Fetching your kitties...');
+    const kitties = await kittiesApi.getMyKitties();
 
-    // Get user input for credentials
-    const firstName = await rli.question('Enter your first name: ');
-    const lastName = await rli.question('Enter your last name: ');
-    const birthYear = await rli.question('Enter your birth year (YYYY): ');
-    const birthMonth = await rli.question('Enter your birth month (1-12): ');
-    const birthDay = await rli.question('Enter your birth day (1-31): ');
-
-    // Validate birth date
-    const birthDate = new Date(parseInt(birthYear), parseInt(birthMonth) - 1, parseInt(birthDay));
-    if (isNaN(birthDate.getTime())) {
-      logger.error('Invalid birth date provided');
+    if (kitties.length === 0) {
+      logger.info("You don't own any kitties yet.");
       return;
     }
 
-    const birthTimestamp = BigInt(birthDate.getTime());
-    const currentTime = BigInt(Date.now());
-    const twentyOneYearsInMs = BigInt(21 * 365 * 24 * 60 * 60 * 1000);
-
-    if (currentTime - birthTimestamp < twentyOneYearsInMs) {
-      logger.warn('Warning: You must be at least 21 years old to increment the kitties.');
-    }
-
-    // Get wallet public key for credential ID
-    const walletPublicKey = await getWalletPublicKey(providers);
-
-    // Create credential subject with proper formatting
-    const credentialSubject = {
-      id: hexToUint8Array(walletPublicKey, 32),
-      first_name: stringToUint8Array(firstName, 32),
-      last_name: stringToUint8Array(lastName, 32),
-      birth_timestamp: birthTimestamp,
-    };
-
-    logger.info('Updating credential information...');
-    await kittiesApi.updateCredentialSubject(credentialSubject);
-    logger.info('Credential information updated successfully!');
-
-    // Check verification status
-    const isVerified = await kittiesApi.isUserVerified();
-    if (isVerified) {
-      logger.info('✅ You are verified and can increment the kitties.');
-    } else {
-      logger.warn('❌ You are not verified. Make sure you are at least 21 years old.');
+    logger.info(`\n=== Your Kitties (${kitties.length}) ===`);
+    for (const kitty of kitties) {
+      logger.info(`Kitty #${kitty.id}:`);
+      logger.info(`  DNA: ${formatDNA(kitty.dna)}`);
+      logger.info(`  Gender: ${formatGenderEnum(kitty.gender)}`);
+      logger.info(`  Generation: ${formatGeneration(kitty.generation)}`);
+      logger.info(`  Price: ${formatPrice(kitty.price)}`);
+      logger.info(`  For Sale: ${formatForSale(kitty.forSale)}`);
+      logger.info('');
     }
   } catch (error) {
-    logger.error(`Failed to set credentials: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error(`Failed to fetch your kitties: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
 
-const checkVerificationStatus = async (kittiesApi: KittiesAPI): Promise<void> => {
+const viewKittiesForSale = async (kittiesApi: KittiesAPI): Promise<void> => {
   try {
-    const isVerified = await kittiesApi.isUserVerified();
-    const credentialSubject = (await kittiesApi.getCredentialSubject()) as CredentialSubject | null;
+    logger.info('Fetching kitties for sale...');
+    const forSaleKitties = await kittiesApi.getKittiesForSale();
 
-    if (credentialSubject) {
-      const firstName = Buffer.from(credentialSubject.first_name).toString('utf8').replace(/\0/g, '');
-      const lastName = Buffer.from(credentialSubject.last_name).toString('utf8').replace(/\0/g, '');
-      const birthDate = new Date(Number(credentialSubject.birth_timestamp));
+    if (forSaleKitties.length === 0) {
+      logger.info('No kitties are currently for sale.');
+      return;
+    }
 
-      logger.info('\n=== Current Credential Information ===');
-      logger.info(`Name: ${firstName} ${lastName}`);
-      logger.info(`Birth Date: ${birthDate.toDateString()}`);
-      logger.info(`Verification Status: ${isVerified ? '✅ Verified' : '❌ Not Verified'}`);
-
-      if (!isVerified) {
-        const currentTime = BigInt(Date.now());
-        const ageInMs = currentTime - credentialSubject.birth_timestamp;
-        const ageInYears = Number(ageInMs / BigInt(365 * 24 * 60 * 60 * 1000));
-
-        logger.info(`Current Age: ~${ageInYears} years`);
-        logger.info('Note: You must be at least 21 years old to increment the kitties.');
-      }
-    } else {
-      logger.info('\n=== Verification Status ===');
-      logger.info('❌ No credential information found.');
-      logger.info('Please set your credential information first (option 3).');
+    logger.info(`\n=== Kitties for Sale (${forSaleKitties.length}) ===`);
+    for (const listing of forSaleKitties) {
+      const kitty = listing.kitty;
+      logger.info(`Kitty #${kitty.id}:`);
+      logger.info(`  DNA: ${formatDNA(kitty.dna)}`);
+      logger.info(`  Gender: ${formatGenderEnum(kitty.gender)}`);
+      logger.info(`  Generation: ${formatGeneration(kitty.generation)}`);
+      logger.info(`  Price: ${formatPrice(kitty.price)}`);
+      logger.info(`  Owner: ${formatAddress(kitty.owner.bytes)}`);
+      logger.info('');
     }
   } catch (error) {
-    logger.error(`Failed to check verification status: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error(`Failed to fetch kitties for sale: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+
+const transferKitty = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
+  try {
+    const kittyIdStr = await rli.question('Enter the kitty ID to transfer: ');
+    const kittyId = safeParseBigInt(kittyIdStr);
+
+    const toAddressStr = await rli.question('Enter the recipient address (hex): ');
+    const toAddress = safeParseAddress(toAddressStr);
+
+    logger.info(`Transferring kitty #${kittyId} to ${formatAddress(toAddress)}...`);
+    await kittiesApi.transferKitty({ to: { bytes: toAddress }, kittyId });
+    logger.info('✅ Kitty transferred successfully!');
+  } catch (error) {
+    logger.error(`Failed to transfer kitty: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+
+const setKittyPrice = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
+  try {
+    const kittyIdStr = await rli.question('Enter the kitty ID to set price for: ');
+    const kittyId = safeParseBigInt(kittyIdStr);
+
+    const priceStr = await rli.question('Enter the price (0 to remove from sale): ');
+    const price = safeParseBigInt(priceStr);
+
+    logger.info(`Setting price for kitty #${kittyId} to ${formatPrice(price)}...`);
+    await kittiesApi.setPrice({ kittyId, price });
+    logger.info('✅ Price set successfully!');
+  } catch (error) {
+    logger.error(`Failed to set price: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+
+const buyKitty = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
+  try {
+    const kittyIdStr = await rli.question('Enter the kitty ID to buy: ');
+    const kittyId = safeParseBigInt(kittyIdStr);
+
+    const bidPriceStr = await rli.question('Enter your bid price: ');
+    const bidPrice = safeParseBigInt(bidPriceStr);
+
+    logger.info(`Buying kitty #${kittyId} for ${formatPrice(bidPrice)}...`);
+    await kittiesApi.buyKitty({ kittyId, bidPrice });
+    logger.info('✅ Kitty purchased successfully!');
+  } catch (error) {
+    logger.error(`Failed to buy kitty: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+
+const breedKitties = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
+  try {
+    const kittyId1Str = await rli.question('Enter the first kitty ID: ');
+    const kittyId1 = safeParseBigInt(kittyId1Str);
+
+    const kittyId2Str = await rli.question('Enter the second kitty ID: ');
+    const kittyId2 = safeParseBigInt(kittyId2Str);
+
+    logger.info(`Breeding kitties #${kittyId1} and #${kittyId2}...`);
+    await kittiesApi.breedKitty({ kittyId1, kittyId2 });
+    logger.info('✅ Kitties bred successfully!');
+  } catch (error) {
+    logger.error(`Failed to breed kitties: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+
+const viewKittyDetails = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
+  try {
+    const kittyIdStr = await rli.question('Enter the kitty ID to view: ');
+    const kittyId = safeParseBigInt(kittyIdStr);
+
+    logger.info(`Fetching details for kitty #${kittyId}...`);
+    const kitty = await kittiesApi.getKitty(kittyId);
+
+    logger.info(`\n=== Kitty #${kitty.id} Details ===`);
+    logger.info(`DNA: ${formatDNA(kitty.dna)}`);
+    logger.info(`Gender: ${formatGenderEnum(kitty.gender)}`);
+    logger.info(`Generation: ${formatGeneration(kitty.generation)}`);
+    logger.info(`Price: ${formatPrice(kitty.price)}`);
+    logger.info(`For Sale: ${formatForSale(kitty.forSale)}`);
+    logger.info(`Owner: ${formatAddress(kitty.owner.bytes)}`);
+  } catch (error) {
+    logger.error(`Failed to fetch kitty details: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+
+const viewContractStats = async (kittiesApi: KittiesAPI): Promise<void> => {
+  try {
+    logger.info('Fetching contract statistics...');
+    const totalKitties = await kittiesApi.getAllKittiesCount();
+    const contractAddress = kittiesApi.deployedContractAddress;
+
+    logger.info(`\n=== Contract Statistics ===`);
+    logger.info(`Contract Address: ${formatContractAddress(contractAddress)}`);
+    logger.info(`Total Kitties: ${formatCount(totalKitties)}`);
+  } catch (error) {
+    logger.error(`Failed to fetch contract stats: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
 
@@ -259,11 +284,11 @@ const mainLoop = async (providers: KittiesProviders, rli: Interface): Promise<vo
     return;
   }
 
-  // Show initial verification status
+  // Show initial contract stats
   try {
-    await checkVerificationStatus(kittiesApi);
+    await viewContractStats(kittiesApi);
   } catch {
-    logger.debug('Could not check initial verification status');
+    logger.debug('Could not fetch initial contract stats');
   }
 
   while (true) {
@@ -271,48 +296,42 @@ const mainLoop = async (providers: KittiesProviders, rli: Interface): Promise<vo
     const choice = await rli.question(MAIN_LOOP_QUESTION);
     switch (choice) {
       case '1':
-        try {
-          // Check if user is verified before attempting increment
-          const isVerified = await kittiesApi.isUserVerified();
-          if (!isVerified) {
-            logger.warn('❌ Cannot increment: You must set valid credentials first (option 3)');
-            logger.warn('You must be at least 21 years old to increment the kitties.');
-            break;
-          }
-
-          await KittiesAPI.incrementWithTxInfo(kittiesApi);
-          logger.info('✅ Kitties incremented successfully!');
-        } catch (error) {
-          if (error instanceof Error) {
-            if (error.message.includes('Identity ID cannot be empty')) {
-              logger.error('❌ Please set your credential information first (option 3)');
-            } else if (error.message.includes('Credential subject hash mismatch')) {
-              logger.error('❌ Credential verification failed. Please check your credential information.');
-            } else {
-              logger.error(`❌ Failed to increment: ${error.message}`);
-            }
-          } else {
-            logger.error('❌ Failed to increment kitties');
-          }
-        }
+        await createKitty(kittiesApi);
         break;
       case '2':
-        try {
-          const kittiesInfo = await KittiesAPI.getKittiesInfo(kittiesApi);
-          logger.info(`\n=== Kitties Information ===`);
-          logger.info(`Contract Address: ${kittiesInfo.contractAddress}`);
-          logger.info(`Current Value: ${kittiesInfo.kittiesValue}`);
-        } catch (error) {
-          logger.error(`Failed to get kitties info: ${error instanceof Error ? error.message : String(error)}`);
-        }
+        await viewMyKitties(kittiesApi);
         break;
       case '3':
-        await setCredentials(kittiesApi, providers, rli);
+        await viewKittiesForSale(kittiesApi);
         break;
       case '4':
-        await checkVerificationStatus(kittiesApi);
+        await transferKitty(kittiesApi, rli);
         break;
       case '5':
+        await setKittyPrice(kittiesApi, rli);
+        break;
+      case '6':
+        await buyKitty(kittiesApi, rli);
+        break;
+      case '7':
+        await breedKitties(kittiesApi, rli);
+        break;
+      case '8':
+        await viewKittyDetails(kittiesApi, rli);
+        break;
+      case '9':
+        await viewContractStats(kittiesApi);
+        break;
+      case '10':
+        await viewOffers(kittiesApi, rli);
+        break;
+      case '11':
+        await approveOffer(kittiesApi, rli);
+        break;
+      case '12':
+        await nftOperations(kittiesApi, rli);
+        break;
+      case '13':
         logger.info('Exiting...');
         return;
       default:
@@ -378,6 +397,242 @@ const mapContainerPort = (env: StartedDockerComposeEnvironment, url: string, con
   return mappedUrl.toString().replace(/\/+$/, '');
 };
 
+// NFT Operations
+const NFT_OPERATIONS_QUESTION = `
+NFT Operations:
+  1. Check balance of an address
+  2. Check owner of a token
+  3. Approve address for a token
+  4. Check approved address for a token
+  5. Set approval for all tokens
+  6. Check if address is approved for all
+  7. Transfer token (direct)
+  8. Transfer token from address
+  9. Back to main menu
+Which would you like to do? `;
+
+const nftOperations = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
+  while (true) {
+    const choice = await rli.question(NFT_OPERATIONS_QUESTION);
+    switch (choice) {
+      case '1':
+        await checkBalance(kittiesApi, rli);
+        break;
+      case '2':
+        await checkOwner(kittiesApi, rli);
+        break;
+      case '3':
+        await approveToken(kittiesApi, rli);
+        break;
+      case '4':
+        await checkApproved(kittiesApi, rli);
+        break;
+      case '5':
+        await setApprovalForAll(kittiesApi, rli);
+        break;
+      case '6':
+        await checkApprovedForAll(kittiesApi, rli);
+        break;
+      case '7':
+        await transferToken(kittiesApi, rli);
+        break;
+      case '8':
+        await transferTokenFrom(kittiesApi, rli);
+        break;
+      case '9':
+        logger.info('Returning to main menu...');
+        return;
+      default:
+        logger.error(`Invalid choice: ${choice}`);
+    }
+  }
+};
+
+const checkBalance = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
+  try {
+    const addressStr = await rli.question('Enter the address to check balance for (hex): ');
+    const address = safeParseAddress(addressStr);
+
+    const balance = await kittiesApi.balanceOf({ bytes: address });
+    logger.info(`Address ${formatAddress(address)} has ${formatCount(balance)} kitties`);
+  } catch (error) {
+    logger.error(`Failed to check balance: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+
+const checkOwner = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
+  try {
+    const tokenIdStr = await rli.question('Enter the token ID to check owner for: ');
+    const tokenId = safeParseBigInt(tokenIdStr);
+
+    const owner = await kittiesApi.ownerOf(tokenId);
+    logger.info(`Token ${tokenId} is owned by: ${formatAddress(owner.bytes)}`);
+  } catch (error) {
+    logger.error(`Failed to check owner: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+
+const approveToken = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
+  try {
+    const toAddressStr = await rli.question('Enter the address to approve (hex): ');
+    const toAddress = safeParseAddress(toAddressStr);
+
+    const tokenIdStr = await rli.question('Enter the token ID to approve: ');
+    const tokenId = safeParseBigInt(tokenIdStr);
+
+    logger.info(`Approving ${formatAddress(toAddress)} for token ${tokenId}...`);
+    await kittiesApi.approve({ to: { bytes: toAddress }, tokenId });
+    logger.info('✅ Token approved successfully!');
+  } catch (error) {
+    logger.error(`Failed to approve token: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+
+const checkApproved = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
+  try {
+    const tokenIdStr = await rli.question('Enter the token ID to check approved address for: ');
+    const tokenId = safeParseBigInt(tokenIdStr);
+
+    const approved = await kittiesApi.getApproved(tokenId);
+    logger.info(`Token ${tokenId} is approved for: ${formatAddress(approved.bytes)}`);
+  } catch (error) {
+    logger.error(`Failed to check approved address: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+
+const setApprovalForAll = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
+  try {
+    const operatorAddressStr = await rli.question('Enter the operator address (hex): ');
+    const operatorAddress = safeParseAddress(operatorAddressStr);
+
+    const approvedStr = await rli.question('Approve? (y/n): ');
+    const approved = approvedStr.toLowerCase() === 'y' || approvedStr.toLowerCase() === 'yes';
+
+    logger.info(
+      `Setting approval for all tokens - operator: ${formatAddress(operatorAddress)}, approved: ${approved}...`,
+    );
+    await kittiesApi.setApprovalForAll({ operator: { bytes: operatorAddress }, approved });
+    logger.info('✅ Approval for all tokens set successfully!');
+  } catch (error) {
+    logger.error(`Failed to set approval for all: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+
+const checkApprovedForAll = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
+  try {
+    const ownerAddressStr = await rli.question('Enter the owner address (hex): ');
+    const ownerAddress = safeParseAddress(ownerAddressStr);
+
+    const operatorAddressStr = await rli.question('Enter the operator address (hex): ');
+    const operatorAddress = safeParseAddress(operatorAddressStr);
+
+    const isApproved = await kittiesApi.isApprovedForAll({ bytes: ownerAddress }, { bytes: operatorAddress });
+    logger.info(
+      `Operator ${formatAddress(operatorAddress)} is ${isApproved ? 'approved' : 'not approved'} for all tokens of ${formatAddress(ownerAddress)}`,
+    );
+  } catch (error) {
+    logger.error(`Failed to check approval for all: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+
+const transferToken = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
+  try {
+    const toAddressStr = await rli.question('Enter the recipient address (hex): ');
+    const toAddress = safeParseAddress(toAddressStr);
+
+    const tokenIdStr = await rli.question('Enter the token ID to transfer: ');
+    const tokenId = safeParseBigInt(tokenIdStr);
+
+    logger.info(`Transferring token ${tokenId} to ${formatAddress(toAddress)}...`);
+    await kittiesApi.transfer({ to: { bytes: toAddress }, tokenId });
+    logger.info('✅ Token transferred successfully!');
+  } catch (error) {
+    logger.error(`Failed to transfer token: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+
+const transferTokenFrom = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
+  try {
+    const fromAddressStr = await rli.question('Enter the sender address (hex): ');
+    const fromAddress = safeParseAddress(fromAddressStr);
+
+    const toAddressStr = await rli.question('Enter the recipient address (hex): ');
+    const toAddress = safeParseAddress(toAddressStr);
+
+    const tokenIdStr = await rli.question('Enter the token ID to transfer: ');
+    const tokenId = safeParseBigInt(tokenIdStr);
+
+    logger.info(`Transferring token ${tokenId} from ${formatAddress(fromAddress)} to ${formatAddress(toAddress)}...`);
+    await kittiesApi.transferFrom({ from: { bytes: fromAddress }, to: { bytes: toAddress }, tokenId });
+    logger.info('✅ Token transferred successfully!');
+  } catch (error) {
+    logger.error(`Failed to transfer token: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+
+// Offer operations
+const OFFER_OPERATIONS_QUESTION = `
+Offer Operations:
+  1. View offers for a kitty
+  2. Approve an offer
+  3. Back to main menu
+Which would you like to do? `;
+
+const offerOperations = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
+  while (true) {
+    const choice = await rli.question(OFFER_OPERATIONS_QUESTION);
+    switch (choice) {
+      case '1':
+        await viewOffers(kittiesApi, rli);
+        break;
+      case '2':
+        await approveOffer(kittiesApi, rli);
+        break;
+      case '3':
+        logger.info('Returning to main menu...');
+        return;
+      default:
+        logger.error(`Invalid choice: ${choice}`);
+    }
+  }
+};
+
+const viewOffers = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
+  try {
+    const kittyIdStr = await rli.question('Enter the kitty ID to view offers for: ');
+    const kittyId = safeParseBigInt(kittyIdStr);
+
+    const fromAddressStr = await rli.question('Enter the buyer address to check offer from (hex): ');
+    const fromAddress = safeParseAddress(fromAddressStr);
+
+    logger.info(`Fetching offer for kitty #${kittyId} from ${formatAddress(fromAddress)}...`);
+    const offer = await kittiesApi.getOffer({ kittyId, from: { bytes: fromAddress } });
+
+    logger.info(`\n=== Offer Details ===`);
+    logger.info(`Kitty ID: ${offer.kittyId}`);
+    logger.info(`Buyer: ${formatAddress(offer.buyer.bytes)}`);
+    logger.info(`Price: ${formatPrice(offer.price)}`);
+  } catch (error) {
+    logger.error(`Failed to fetch offer: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+
+const approveOffer = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
+  try {
+    const kittyIdStr = await rli.question('Enter the kitty ID to approve offer for: ');
+    const kittyId = safeParseBigInt(kittyIdStr);
+
+    const buyerAddressStr = await rli.question('Enter the buyer address (hex): ');
+    const buyerAddress = safeParseAddress(buyerAddressStr);
+
+    logger.info(`Approving offer for kitty #${kittyId} from ${formatAddress(buyerAddress)}...`);
+    await kittiesApi.approveOffer({ kittyId, buyer: { bytes: buyerAddress } });
+    logger.info('✅ Offer approved successfully!');
+  } catch (error) {
+    logger.error(`Failed to approve offer: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+
 export const run = async (config: Config, _logger: Logger, dockerEnv?: DockerComposeEnvironment): Promise<void> => {
   logger = _logger;
   setLogger(_logger);
@@ -396,11 +651,7 @@ export const run = async (config: Config, _logger: Logger, dockerEnv?: DockerCom
   const wallet = await buildWallet(config, rli);
   try {
     if (wallet !== null) {
-      const providers = await configureProviders(
-        wallet,
-        config,
-        new NodeZkConfigProvider<'increment'>(contractConfig.zkConfigPath),
-      );
+      const providers = await configureProviders(wallet, config, new NodeZkConfigProvider(contractConfig.zkConfigPath));
       await mainLoop(providers, rli);
     }
   } catch (e) {
