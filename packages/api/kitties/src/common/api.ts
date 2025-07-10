@@ -37,7 +37,7 @@ import { deployContract, findDeployedContract } from '@midnight-ntwrk/midnight-j
 
 import { assertIsContractAddress, toHex, parseCoinPublicKeyToHex } from '@midnight-ntwrk/midnight-js-utils';
 import type { PrivateStateProvider } from '@midnight-ntwrk/midnight-js-types';
-import { convertWalletPublicKeyToBytes } from './utils'
+import { convertWalletPublicKeyToBytes } from './utils';
 import { map, type Observable, retry } from 'rxjs';
 import {
   type KittiesContract,
@@ -48,6 +48,9 @@ import {
   type TransferKittyParams,
   type SetPriceParams,
   type BuyKittyParams,
+  type ApproveOfferParams,
+  type GetOfferParams,
+  type OfferData,
   type BreedKittyParams,
   type NFTApprovalParams,
   type NFTSetApprovalForAllParams,
@@ -69,6 +72,8 @@ export interface DeployedKittiesAPI {
   readonly transferKitty: (params: TransferKittyParams) => Promise<void>;
   readonly setPrice: (params: SetPriceParams) => Promise<void>;
   readonly buyKitty: (params: BuyKittyParams) => Promise<void>;
+  readonly approveOffer: (params: ApproveOfferParams) => Promise<void>;
+  readonly getOffer: (params: GetOfferParams) => Promise<OfferData>;
   readonly breedKitty: (params: BreedKittyParams) => Promise<void>;
   readonly getKitty: (kittyId: bigint) => Promise<KittyData>;
   readonly getAllKittiesCount: () => Promise<bigint>;
@@ -128,16 +133,16 @@ export class KittiesAPI implements DeployedKittiesAPI {
   readonly deployedContractAddress: ContractAddress;
   readonly state$: Observable<KittiesState>;
 
-  // ========================================
-  // KITTY-SPECIFIC OPERATIONS
-  // ========================================
-
   // Helper method to get the current wallet address in the correct Hex Bytes format
   getWalletAddress(): { bytes: Uint8Array } {
     const coinPublicKey = this.providers.walletProvider.coinPublicKey;
     const bytes = convertWalletPublicKeyToBytes(coinPublicKey);
     return { bytes };
   }
+
+  //  =====================================
+  //   KITTY-SPECIFIC OPERATIONS
+  //  =====================================
 
   // Convenience method to get kitties for the current wallet
   async getMyKitties(): Promise<KittyData[]> {
@@ -167,6 +172,23 @@ export class KittiesAPI implements DeployedKittiesAPI {
     console.log(`Buying kitty ${params.kittyId} for ${params.bidPrice}...`);
     const finalizedTxData = await this.deployedContract.callTx.buyKitty(params.kittyId, params.bidPrice);
     console.log(`Kitty purchased! Transaction added in block ${finalizedTxData.public.blockHeight}`);
+  }
+
+  async approveOffer(params: ApproveOfferParams): Promise<void> {
+    console.log(`Approving offer for kitty ${params.kittyId} from buyer...`);
+    const finalizedTxData = await this.deployedContract.callTx.approveOffer(params.kittyId, params.buyer);
+    console.log(`Offer approved! Transaction added in block ${finalizedTxData.public.blockHeight}`);
+  }
+
+  async getOffer(params: GetOfferParams): Promise<OfferData> {
+    console.log(`Getting offer for kitty ${params.kittyId} from ${toHex(params.from.bytes)}...`);
+    const response = await this.deployedContract.callTx.getOffer(params.kittyId, params.from);
+    const offer = (response as any).private.result;
+    return {
+      kittyId: offer.kittyId,
+      buyer: offer.buyer,
+      price: offer.price,
+    };
   }
 
   async breedKitty(params: BreedKittyParams): Promise<void> {
@@ -260,9 +282,9 @@ export class KittiesAPI implements DeployedKittiesAPI {
     return userKitties;
   }
 
-  // ========================================
-  // NFT STANDARD OPERATIONS
-  // ========================================
+  //  =====================================
+  //   NFT STANDARD OPERATIONS
+  //  =====================================
 
   async balanceOf(owner: { bytes: Uint8Array }): Promise<bigint> {
     console.log(`Getting balance for owner ${toHex(owner.bytes)}...`);
@@ -320,9 +342,9 @@ export class KittiesAPI implements DeployedKittiesAPI {
     console.log(`Token transferred! Transaction added in block ${finalizedTxData.public.blockHeight}`);
   }
 
-  // ========================================
-  // UTILITY METHODS
-  // ========================================
+  //  =====================================
+  //   UTILITY METHODS
+  //  =====================================
 
   /**
    * Validate that all required providers are present
@@ -357,9 +379,9 @@ export class KittiesAPI implements DeployedKittiesAPI {
     }
   }
 
-  // ========================================
-  // UNIFIED STATIC METHODS (UI + CLI)
-  // ========================================
+  //  =====================================
+  //   UNIFIED STATIC METHODS (UI + CLI)
+  //  =====================================
 
   /**
    * Deploy a new kitties contract
@@ -439,7 +461,7 @@ export class KittiesAPI implements DeployedKittiesAPI {
   }
 
   /**
-   * Create a new kitty using the KittiesAPI instance (for CLI use)
+   * Create a new kitty using the KittiesAPI instance
    * @param kittiesApi - The KittiesAPI instance
    * @returns Transaction response with details
    */
@@ -554,9 +576,9 @@ export class KittiesAPI implements DeployedKittiesAPI {
     return existingPrivateState ?? initialState;
   }
 
-  // ========================================
-  // CLI UTILITY METHODS
-  // ========================================
+  //  =====================================
+  //   CLI METHODS
+  //  =====================================
 
   /**
    * Get the underlying deployed contract from a KittiesAPI instance (for CLI compatibility)
@@ -576,12 +598,12 @@ export class KittiesAPI implements DeployedKittiesAPI {
     return kittiesApi.deployedContractAddress;
   }
 
-  // ========================================
-  // STATIC METHODS FOR KITTY OPERATIONS
-  // ========================================
+  //  =======================================================
+  //   STATIC METHODS FOR KITTY OPERATIONS (USED IN CLI)
+  //  =======================================================
 
   /**
-   * Create a new kitty (for CLI use)
+   * Create a new kitty
    * @param kittiesApi - The KittiesAPI instance
    * @returns Transaction response with details
    */
@@ -590,7 +612,7 @@ export class KittiesAPI implements DeployedKittiesAPI {
   }
 
   /**
-   * Transfer a kitty to another address (for CLI use)
+   * Transfer a kitty to another address
    * @param kittiesApi - The KittiesAPI instance
    * @param params - Transfer parameters
    * @returns Transaction response with details
@@ -607,7 +629,7 @@ export class KittiesAPI implements DeployedKittiesAPI {
   }
 
   /**
-   * Set price for a kitty (for CLI use)
+   * Set price for a kitty
    * @param kittiesApi - The KittiesAPI instance
    * @param params - Set price parameters
    * @returns Transaction response with details
@@ -624,7 +646,7 @@ export class KittiesAPI implements DeployedKittiesAPI {
   }
 
   /**
-   * Buy a kitty (for CLI use)
+   * Buy a kitty
    * @param kittiesApi - The KittiesAPI instance
    * @param params - Buy kitty parameters
    * @returns Transaction response with details
@@ -641,7 +663,7 @@ export class KittiesAPI implements DeployedKittiesAPI {
   }
 
   /**
-   * Breed two kitties (for CLI use)
+   * Breed two kitties
    * @param kittiesApi - The KittiesAPI instance
    * @param params - Breed kitty parameters
    * @returns Transaction response with details
@@ -658,7 +680,7 @@ export class KittiesAPI implements DeployedKittiesAPI {
   }
 
   /**
-   * Get kitty information (for CLI use)
+   * Get kitty information
    * @param kittiesApi - The KittiesAPI instance
    * @param kittyId - The kitty ID to get
    * @returns The kitty data
@@ -668,7 +690,7 @@ export class KittiesAPI implements DeployedKittiesAPI {
   }
 
   /**
-   * Get total kitties count (for CLI use)
+   * Get total kitties count
    * @param kittiesApi - The KittiesAPI instance
    * @returns The total kitties count
    */
@@ -677,7 +699,7 @@ export class KittiesAPI implements DeployedKittiesAPI {
   }
 
   /**
-   * Get kitties for sale (for CLI use)
+   * Get kitties for sale
    * @param kittiesApi - The KittiesAPI instance
    * @returns Array of kitties for sale
    */
@@ -686,7 +708,7 @@ export class KittiesAPI implements DeployedKittiesAPI {
   }
 
   /**
-   * Get user's kitties (for CLI use)
+   * Get user's kitties
    * @param kittiesApi - The KittiesAPI instance
    * @param owner - The owner's public key
    * @returns Array of user's kitties
@@ -711,4 +733,3 @@ export function setLogger(_logger: any) {
 // Note: Node.js specific functions (buildWalletAndWaitForFunds, buildFreshWallet, etc.)
 // are available in './node-api' for CLI compatibility, but are not exported here
 // to maintain browser compatibility
-

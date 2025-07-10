@@ -104,11 +104,11 @@ describe('API', () => {
 
     // Create first kitty
     await kittiesApi.createKitty();
-    
+
     // Get the actual owner from the kitty itself
     const kitty1 = await kittiesApi.getKitty(BigInt(1));
     const actualOwner = kitty1.owner;
-    
+
     // Use the converted wallet bytes to test getUserKitties
     const userKittiesAfterFirst = await kittiesApi.getUserKitties(walletBytes);
     expect(userKittiesAfterFirst.length).toBe(1);
@@ -122,11 +122,11 @@ describe('API', () => {
 
     // Create second kitty
     await kittiesApi.createKitty();
-    
+
     // Check user now has two kitties
     const userKittiesAfterSecond = await kittiesApi.getUserKitties(walletBytes);
     expect(userKittiesAfterSecond.length).toBe(2);
-    
+
     // Total count should be 2
     const totalCount = await kittiesApi.getAllKittiesCount();
     expect(totalCount).toEqual(BigInt(2));
@@ -135,7 +135,7 @@ describe('API', () => {
     expect(userKittiesAfterSecond[0].dna).not.toEqual(userKittiesAfterSecond[1].dna);
   });
 
-  it('should handle kitty pricing and sales [@slow]', async () => {
+  it('should handle kitty pricing and sales lists [@slow]', async () => {
     // Clear any existing private state to ensure clean test
     await providers.privateStateProvider.clear();
 
@@ -192,7 +192,7 @@ describe('API', () => {
     // Get the parent kitties
     const parent1 = await kittiesApi.getKitty(BigInt(1));
     const parent2 = await kittiesApi.getKitty(BigInt(2));
-    
+
     expect(parent1.generation).toEqual(BigInt(0));
     expect(parent2.generation).toEqual(BigInt(0));
 
@@ -210,16 +210,93 @@ describe('API', () => {
     expect(child.dna).not.toEqual(parent2.dna); // Should have different DNA
   });
 
+  it('should enforce offer-based buying system constraints [@slow]', async () => {
+    // Clear any existing private state to ensure clean test
+    await providers.privateStateProvider.clear();
+
+    // Deploy a new contract for this test
+    const kittiesApi = await KittiesAPI.deploy(providers, {});
+
+    // Create a kitty
+    await kittiesApi.createKitty();
+
+    // Set a price for the kitty
+    const price = BigInt(100);
+    await kittiesApi.setPrice({ kittyId: BigInt(1), price });
+
+    // Verify kitty is for sale
+    const kittyBeforeOffer = await kittiesApi.getKitty(BigInt(1));
+    expect(kittyBeforeOffer.forSale).toBe(true);
+    expect(kittyBeforeOffer.price).toEqual(price);
+
+    // Test 1: Cannot make offer on own kitty (contract constraint)
+    await expect(kittiesApi.buyKitty({ kittyId: BigInt(1), bidPrice: BigInt(120) })).rejects.toThrow(
+      'Cannot buy your own kitty',
+    );
+
+    // Test 2: Transfer kitty to another address to simulate different ownership
+    const newOwnerAddress = { bytes: new Uint8Array(32).fill(1) };
+    await kittiesApi.transferKitty({ to: newOwnerAddress, kittyId: BigInt(1) });
+
+    // Verify transfer worked and sale status was reset
+    const kittyAfterTransfer = await kittiesApi.getKitty(BigInt(1));
+    expect(kittyAfterTransfer.owner.bytes).toEqual(newOwnerAddress.bytes);
+    expect(kittyAfterTransfer.forSale).toBe(false);
+    expect(kittyAfterTransfer.price).toEqual(BigInt(0));
+
+    // Test 3: Cannot make offer on kitty not for sale
+    await expect(kittiesApi.buyKitty({ kittyId: BigInt(1), bidPrice: BigInt(100) })).rejects.toThrow(
+      'Kitty is not for sale',
+    );
+
+    // Note: This test validates the core offer system constraints.
+    // In a real multi-wallet scenario, different users would be able to:
+    // - Make offers on each other's kitties for sale
+    // - Approve offers and complete ownership transfers
+    // - Have their offers cleared after approval
+    // The contract-level tests (in the simulator) fully validate this logic.
+  });
+
+  it('should enforce contract constraints [@slow]', async () => {
+    // Clear any existing private state to ensure clean test
+    await providers.privateStateProvider.clear();
+
+    // Deploy a new contract for this test
+    const kittiesApi = await KittiesAPI.deploy(providers, {});
+
+    // Create a kitty
+    await kittiesApi.createKitty();
+
+    // Test 1: Cannot make offer on kitty not for sale
+    await expect(kittiesApi.buyKitty({ kittyId: BigInt(1), bidPrice: BigInt(100) })).rejects.toThrow(
+      'Kitty is not for sale',
+    );
+
+    // Set a price to make it for sale
+    const price = BigInt(100);
+    await kittiesApi.setPrice({ kittyId: BigInt(1), price });
+
+    // Test 2: Cannot make offer below asking price
+    await expect(kittiesApi.buyKitty({ kittyId: BigInt(1), bidPrice: BigInt(50) })).rejects.toThrow(
+      'Bid price too low',
+    );
+
+    // Test 3: Cannot buy own kitty (even with valid price)
+    await expect(kittiesApi.buyKitty({ kittyId: BigInt(1), bidPrice: price })).rejects.toThrow(
+      'Cannot buy your own kitty',
+    );
+  });
+
   it('should handle NFT standard operations [@slow]', async () => {
     // Clear any existing private state to ensure clean test
     await providers.privateStateProvider.clear();
 
     // Deploy a new contract for this test
     const kittiesApi = await KittiesAPI.deploy(providers, {});
-    
+
     // Get wallet address using API conversion
     const walletBytes = kittiesApi.getWalletAddress();
-    
+
     // Create a test address for ownership operations
     const testAddress = { bytes: new Uint8Array(32).fill(1) };
 
@@ -232,7 +309,7 @@ describe('API', () => {
 
     // Get the owner of the first kitty and verify it matches our wallet
     const owner = await kittiesApi.ownerOf(BigInt(1));
-    
+
     expect(owner).toBeDefined();
     expect(owner.bytes).toBeInstanceOf(Uint8Array);
     expect(owner.bytes).toEqual(walletBytes.bytes);
@@ -255,6 +332,11 @@ describe('API', () => {
     // Check wallet balance is now 0
     const walletBalanceAfter = await kittiesApi.balanceOf(walletBytes);
     expect(walletBalanceAfter).toEqual(BigInt(0));
+
+    // Verify transfer resets sale status
+    const kittyAfterTransfer = await kittiesApi.getKitty(BigInt(1));
+    expect(kittyAfterTransfer.forSale).toBe(false);
+    expect(kittyAfterTransfer.price).toEqual(BigInt(0));
 
     // Create another kitty and check total supply
     await kittiesApi.createKitty();

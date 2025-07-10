@@ -228,13 +228,13 @@ describe("Kitties Contract Tests", () => {
     // Check that all offers were cleared after approval (including Bob's rejected offer)
     const bobOfferAfterApproval = simulator.getOffer(1n, bob);
     const charlieOfferAfterApproval = simulator.getOffer(1n, charlie);
-    
+
     expect(bobOfferAfterApproval).toEqual({
       kittyId: 0n,
       buyer: { bytes: new Uint8Array(32) },
       price: 0n
     });
-    
+
     expect(charlieOfferAfterApproval).toEqual({
       kittyId: 0n,
       buyer: { bytes: new Uint8Array(32) },

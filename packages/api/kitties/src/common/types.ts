@@ -100,3 +100,19 @@ export interface NFTTransferFromParams {
   to: { bytes: Uint8Array };
   tokenId: bigint;
 }
+
+export interface ApproveOfferParams {
+  kittyId: bigint;
+  buyer: { bytes: Uint8Array };
+}
+
+export interface GetOfferParams {
+  kittyId: bigint;
+  from: { bytes: Uint8Array };
+}
+
+export interface OfferData {
+  kittyId: bigint;
+  buyer: { bytes: Uint8Array };
+  price: bigint;
+}
