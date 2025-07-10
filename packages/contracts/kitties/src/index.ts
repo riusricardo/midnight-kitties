@@ -27,7 +27,8 @@ import ContractModule from "./managed/kitties/contract/index.cjs";
 import type {
   Kitty,
   Ledger,
-  Gender
+  Gender,
+  Offer
 } from "./managed/kitties/contract/index.cjs";
 
 export const pureCircuits = ContractModule.pureCircuits;
@@ -38,4 +39,4 @@ export type { KittiesPrivateState } from "./witnesses.js";
 export { witnesses } from "./witnesses.js";
 export { createKittiesPrivateState } from "./witnesses.js";
 // Re-export the types explicitly
-export type { Ledger, Kitty, Gender };
+export type { Ledger, Kitty, Gender, Offer };

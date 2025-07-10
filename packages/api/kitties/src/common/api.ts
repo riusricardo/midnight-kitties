@@ -1,7 +1,6 @@
 /**
  * @file api.ts
  * @author Ricardo Rius
- * @license GPL-3.0
  *
  * Copyright (C) 2025 Ricardo Rius
  *
@@ -32,6 +31,8 @@ import {
   type KittiesPrivateState,
   createKittiesPrivateState,
   witnesses,
+  type Offer,
+  type Kitty,
 } from '@midnight-ntwrk/kitties-contract';
 import { deployContract, findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
 
@@ -45,18 +46,17 @@ import {
   type DeployedKittiesContract,
   type KittyData,
   type KittyListingData,
+  type KittyOffersData,
   type TransferKittyParams,
   type SetPriceParams,
   type CreateBuyOfferParams,
   type ApproveOfferParams,
   type GetOfferParams,
-  type OfferData,
   type BreedKittyParams,
   type NFTApprovalParams,
   type NFTSetApprovalForAllParams,
   type NFTTransferParams,
   type NFTTransferFromParams,
-  type Kitty,
 } from './types.js';
 
 // Single shared contract instance to ensure consistency
@@ -73,7 +73,8 @@ export interface DeployedKittiesAPI {
   readonly setPrice: (params: SetPriceParams) => Promise<void>;
   readonly createBuyOffer: (params: CreateBuyOfferParams) => Promise<void>;
   readonly approveOffer: (params: ApproveOfferParams) => Promise<void>;
-  readonly getOffer: (params: GetOfferParams) => Promise<OfferData>;
+  readonly getOffer: (params: GetOfferParams) => Promise<Offer>;
+  readonly getOffersForKitty: (kittyId: bigint) => Promise<Offer[]>;
   readonly breedKitty: (params: BreedKittyParams) => Promise<void>;
   readonly getKitty: (kittyId: bigint) => Promise<KittyData>;
   readonly getAllKittiesCount: () => Promise<bigint>;
@@ -180,15 +181,34 @@ export class KittiesAPI implements DeployedKittiesAPI {
     console.log(`Offer approved! Transaction added in block ${finalizedTxData.public.blockHeight}`);
   }
 
-  async getOffer(params: GetOfferParams): Promise<OfferData> {
+  async getOffer(params: GetOfferParams): Promise<Offer> {
     console.log(`Getting offer for kitty ${params.kittyId} from ${toHex(params.from.bytes)}...`);
     const response = await this.deployedContract.callTx.getOffer(params.kittyId, params.from);
     const offer = (response as any).private.result;
-    return {
-      kittyId: offer.kittyId,
-      buyer: offer.buyer,
-      price: offer.price,
-    };
+    return offer;
+  }
+
+  async getOffersForKitty(kittyId: bigint): Promise<Offer[]> {
+    console.log(`Getting all offers for kitty ${kittyId}...`);
+    const contractState = await this.providers.publicDataProvider.queryContractState(this.deployedContractAddress);
+    if (!contractState) {
+      return [];
+    }
+
+    const ledgerState = Kitties.ledger(contractState.data);
+    const offers: Offer[] = [];
+
+    // Check if there are any offers for this kitty
+    if (ledgerState.buyOffers && ledgerState.buyOffers.member(kittyId)) {
+      const kittyOffers = ledgerState.buyOffers.lookup(kittyId);
+      // Iterate through all offers for this kitty
+      for (const [buyer, offer] of kittyOffers) {
+        offers.push(offer);
+      }
+    }
+
+    console.log(`Found ${offers.length} offers for kitty ${kittyId}`);
+    return offers;
   }
 
   async breedKitty(params: BreedKittyParams): Promise<void> {
@@ -715,6 +735,16 @@ export class KittiesAPI implements DeployedKittiesAPI {
    */
   static async getUserKitties(kittiesApi: KittiesAPI, owner: { bytes: Uint8Array }): Promise<KittyData[]> {
     return await kittiesApi.getUserKitties(owner);
+  }
+
+  /**
+   * Get all offers for a specific kitty
+   * @param kittiesApi - The KittiesAPI instance
+   * @param kittyId - The kitty ID to get offers for
+   * @returns Array of offers for the kitty
+   */
+  static async getOffersForKitty(kittiesApi: KittiesAPI, kittyId: bigint): Promise<Offer[]> {
+    return await kittiesApi.getOffersForKitty(kittyId);
   }
 }
 

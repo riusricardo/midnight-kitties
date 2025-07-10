@@ -23,7 +23,7 @@
  * damages or losses arising from the use of this software.
  */
 
-import { Kitties, type KittiesPrivateState, type Gender } from '@midnight-ntwrk/kitties-contract';
+import { Kitties, type KittiesPrivateState, type Gender, type Offer } from '@midnight-ntwrk/kitties-contract';
 import type { ImpureCircuitId, MidnightProviders } from '@midnight-ntwrk/midnight-js-types';
 import type { DeployedContract, FoundContract } from '@midnight-ntwrk/midnight-js-contracts';
 
@@ -42,7 +42,7 @@ export type KittiesProviders = MidnightProviders<
 export type DeployedKittiesContract = DeployedContract<KittiesContract> | FoundContract<KittiesContract>;
 
 // Re-export types from the contract
-export type { Ledger, Kitty, Gender } from '@midnight-ntwrk/kitties-contract';
+export type { Ledger, Kitty, Gender, Offer } from '@midnight-ntwrk/kitties-contract';
 
 // Helper types for API methods
 export interface KittyData {
@@ -58,6 +58,11 @@ export interface KittyData {
 export interface KittyListingData {
   id: bigint;
   kitty: KittyData;
+}
+
+export interface KittyOffersData {
+  kittyId: bigint;
+  offers: Offer[];
 }
 
 export interface TransferKittyParams {
@@ -109,10 +114,4 @@ export interface ApproveOfferParams {
 export interface GetOfferParams {
   kittyId: bigint;
   from: { bytes: Uint8Array };
-}
-
-export interface OfferData {
-  kittyId: bigint;
-  buyer: { bytes: Uint8Array };
-  price: bigint;
 }
