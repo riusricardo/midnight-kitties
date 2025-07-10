@@ -120,6 +120,18 @@ export class KittiesSimulator {
   }
 
   /**
+   * Approve an offer for a kitty (owner approves buyer's offer)
+   */
+  public approveOffer(kittyId: bigint, buyer: CoinPublicKey): void {
+    const result = this.contract.impureCircuits.approveOffer(
+      this.baseContext,
+      kittyId,
+      this.publicKeyToBytes(buyer)
+    );
+    this.baseContext = result.context;
+  }
+
+  /**
    * Breed two kitties to create a new offspring
    */
   public breedKitty(kittyId1: bigint, kittyId2: bigint): void {
@@ -129,6 +141,29 @@ export class KittiesSimulator {
       kittyId2
     );
     this.baseContext = result.context;
+  }
+
+  /**
+   * Switch to a different user context for testing
+   */
+  public switchUser(user: CoinPublicKey): void {
+    // Create a new simulator instance with the specified user
+    const tempSimulator = new KittiesSimulator();
+    tempSimulator.createPublicKey = (name: string) => {
+      if (name === "Alice") return user;
+      return this.createPublicKey(name);
+    };
+
+    // Reinitialize with the new user
+    const { currentPrivateState, currentZswapLocalState } =
+      tempSimulator.contract.initialState(constructorContext({}, user));
+
+    this.baseContext = {
+      currentPrivateState,
+      currentZswapLocalState,
+      originalState: this.baseContext.originalState, // Keep the same state
+      transactionContext: this.baseContext.transactionContext
+    };
   }
 
   // === Query Methods ===
@@ -146,6 +181,18 @@ export class KittiesSimulator {
    */
   public getAllKittiesCount(): bigint {
     const result = this.contract.circuits.getAllKittiesCount(this.baseContext);
+    return result.result;
+  }
+
+  /**
+   * Get an offer for a kitty from a specific buyer
+   */
+  public getOffer(kittyId: bigint, buyer: CoinPublicKey): any {
+    const result = this.contract.circuits.getOffer(
+      this.baseContext,
+      kittyId,
+      this.publicKeyToBytes(buyer)
+    );
     return result.result;
   }
 

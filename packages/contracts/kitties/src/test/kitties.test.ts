@@ -129,6 +129,167 @@ describe("Kitties Contract Tests", () => {
     expect(kitty.price).toBe(0n);
   });
 
+  it("should handle offer-based buying system", () => {
+    const simulator = new KittiesSimulator();
+    const alice = simulator.createPublicKey("Alice");
+    const bob = simulator.createPublicKey("Bob");
+
+    // Alice creates a kitty
+    simulator.createKitty();
+
+    // Alice sets a price for the kitty
+    const price = 100n;
+    simulator.setPrice(1n, price);
+
+    // Verify kitty is for sale
+    let kitty = simulator.getKitty(1n);
+    expect(kitty.forSale).toBe(true);
+    expect(kitty.price).toBe(price);
+
+    // Switch to Bob's context to make an offer
+    simulator.switchUser(bob);
+
+    // Bob makes an offer
+    const bidPrice = 120n;
+    simulator.buyKitty(1n, bidPrice);
+
+    // Check that the offer was created
+    const offer = simulator.getOffer(1n, bob);
+    expect(offer.kittyId).toBe(1n);
+    expect(offer.buyer).toEqual(simulator.publicKeyToBytes(bob));
+    expect(offer.price).toBe(bidPrice);
+
+    // Switch back to Alice's context
+    simulator.switchUser(alice);
+
+    // Alice approves Bob's offer
+    simulator.approveOffer(1n, bob);
+
+    // Check that ownership transferred
+    expect(simulator.ownerOf(1n)).toBe(bob);
+    expect(simulator.balanceOf(alice)).toBe(0n);
+    expect(simulator.balanceOf(bob)).toBe(1n);
+
+    // Check that kitty data was updated (should reset sale status)
+    kitty = simulator.getKitty(1n);
+    expect(kitty.forSale).toBe(false);
+    expect(kitty.price).toBe(0n);
+  });
+
+  it("should handle multiple offers for the same kitty", () => {
+    const simulator = new KittiesSimulator();
+    const alice = simulator.createPublicKey("Alice");
+    const bob = simulator.createPublicKey("Bob");
+    const charlie = simulator.createPublicKey("Charlie");
+
+    // Alice creates a kitty
+    simulator.createKitty();
+
+    // Alice sets a price for the kitty
+    const price = 100n;
+    simulator.setPrice(1n, price);
+
+    // Bob makes an offer
+    simulator.switchUser(bob);
+    simulator.buyKitty(1n, 120n);
+
+    // Charlie makes a higher offer
+    simulator.switchUser(charlie);
+    simulator.buyKitty(1n, 150n);
+
+    // Check both offers exist
+    const bobOffer = simulator.getOffer(1n, bob);
+    const charlieOffer = simulator.getOffer(1n, charlie);
+
+    expect(bobOffer.price).toBe(120n);
+    expect(charlieOffer.price).toBe(150n);
+
+    // Switch back to Alice's context
+    simulator.switchUser(alice);
+
+    // Alice chooses to approve Charlie's higher offer
+    simulator.approveOffer(1n, charlie);
+
+    // Check that Charlie now owns the kitty
+    expect(simulator.ownerOf(1n)).toBe(charlie);
+    expect(simulator.balanceOf(alice)).toBe(0n);
+    expect(simulator.balanceOf(bob)).toBe(0n);
+    expect(simulator.balanceOf(charlie)).toBe(1n);
+  });
+
+  it("should handle offer rejection scenarios", () => {
+    const simulator = new KittiesSimulator();
+    const alice = simulator.createPublicKey("Alice");
+    const bob = simulator.createPublicKey("Bob");
+
+    // Alice creates a kitty
+    simulator.createKitty();
+
+    // Alice sets a price for the kitty
+    const price = 100n;
+    simulator.setPrice(1n, price);
+
+    // Bob makes an offer that meets the minimum price
+    simulator.switchUser(bob);
+    simulator.buyKitty(1n, price); // Equal to asking price
+
+    // Check that the offer was created
+    const offer = simulator.getOffer(1n, bob);
+    expect(offer.price).toBe(price);
+
+    // Switch back to Alice's context
+    simulator.switchUser(alice);
+
+    // Alice can approve the offer
+    simulator.approveOffer(1n, bob);
+
+    // Check that ownership transferred
+    expect(simulator.ownerOf(1n)).toBe(bob);
+    expect(simulator.balanceOf(alice)).toBe(0n);
+    expect(simulator.balanceOf(bob)).toBe(1n);
+  });
+
+  it("should enforce minimum price for offers", () => {
+    const simulator = new KittiesSimulator();
+    const bob = simulator.createPublicKey("Bob");
+
+    // Alice creates a kitty (Alice is the default user)
+    simulator.createKitty();
+
+    // Alice sets a price for the kitty
+    const price = 100n;
+    simulator.setPrice(1n, price);
+
+    // Bob tries to make an offer below the asking price
+    simulator.switchUser(bob);
+
+    // This should fail due to contract constraints
+    expect(() => {
+      simulator.buyKitty(1n, 50n); // Below asking price
+    }).toThrow("Bid price too low");
+  });
+
+  it("should enforce for-sale requirement for offers", () => {
+    const simulator = new KittiesSimulator();
+    const bob = simulator.createPublicKey("Bob");
+
+    // Alice creates a kitty but doesn't put it for sale (Alice is the default user)
+    simulator.createKitty();
+
+    // Verify kitty is not for sale
+    let kitty = simulator.getKitty(1n);
+    expect(kitty.forSale).toBe(false);
+    expect(kitty.price).toBe(0n);
+
+    // Bob tries to make an offer on a kitty not for sale
+    simulator.switchUser(bob);
+
+    // This should fail due to contract constraints
+    expect(() => {
+      simulator.buyKitty(1n, 100n);
+    }).toThrow("Kitty is not for sale");
+  });
+
   it("should breed two kitties", () => {
     const simulator = new KittiesSimulator();
     const alice = simulator.createPublicKey("Alice");
