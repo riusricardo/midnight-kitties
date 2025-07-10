@@ -75,7 +75,7 @@ You can do one of the following:
   3. View kitties for sale
   4. Transfer a kitty
   5. Set kitty price
-  6. Buy a kitty
+  6. Create buy offer
   7. Breed kitties
   8. View kitty details
   9. View contract stats
@@ -189,19 +189,19 @@ const setKittyPrice = async (kittiesApi: KittiesAPI, rli: Interface): Promise<vo
   }
 };
 
-const buyKitty = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
+const createBuyOffer = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
   try {
-    const kittyIdStr = await rli.question('Enter the kitty ID to buy: ');
+    const kittyIdStr = await rli.question('Enter the kitty ID to create offer for: ');
     const kittyId = safeParseBigInt(kittyIdStr);
 
     const bidPriceStr = await rli.question('Enter your bid price: ');
     const bidPrice = safeParseBigInt(bidPriceStr);
 
-    logger.info(`Buying kitty #${kittyId} for ${formatPrice(bidPrice)}...`);
-    await kittiesApi.buyKitty({ kittyId, bidPrice });
-    logger.info('✅ Kitty buy offer created!');
+    logger.info(`Creating buy offer for kitty #${kittyId} with bid price ${formatPrice(bidPrice)}...`);
+    await kittiesApi.createBuyOffer({ kittyId, bidPrice });
+    logger.info('✅ Buy offer created successfully!');
   } catch (error) {
-    logger.error(`Failed to create buy offer kitty: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error(`Failed to create buy offer: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
 
@@ -311,7 +311,7 @@ const mainLoop = async (providers: KittiesProviders, rli: Interface): Promise<vo
         await setKittyPrice(kittiesApi, rli);
         break;
       case '6':
-        await buyKitty(kittiesApi, rli);
+        await createBuyOffer(kittiesApi, rli);
         break;
       case '7':
         await breedKitties(kittiesApi, rli);

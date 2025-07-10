@@ -70,7 +70,7 @@ export interface SetPriceParams {
   price: bigint;
 }
 
-export interface BuyKittyParams {
+export interface CreateBuyOfferParams {
   kittyId: bigint;
   bidPrice: bigint;
 }

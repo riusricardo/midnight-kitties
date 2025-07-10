@@ -151,7 +151,7 @@ describe("Kitties Contract Tests", () => {
 
     // Bob makes an offer
     const bidPrice = 120n;
-    simulator.buyKitty(1n, bidPrice);
+    simulator.createBuyOffer(1n, bidPrice);
 
     // Check that the offer was created
     const offer = simulator.getOffer(1n, bob);
@@ -200,11 +200,11 @@ describe("Kitties Contract Tests", () => {
 
     // Bob makes an offer
     simulator.switchUser(bob);
-    simulator.buyKitty(1n, 120n);
+    simulator.createBuyOffer(1n, 120n);
 
     // Charlie makes a higher offer
     simulator.switchUser(charlie);
-    simulator.buyKitty(1n, 150n);
+    simulator.createBuyOffer(1n, 150n);
 
     // Check both offers exist
     const bobOffer = simulator.getOffer(1n, bob);
@@ -256,7 +256,7 @@ describe("Kitties Contract Tests", () => {
 
     // Bob makes an offer that meets the minimum price
     simulator.switchUser(bob);
-    simulator.buyKitty(1n, price); // Equal to asking price
+    simulator.createBuyOffer(1n, price); // Equal to asking price
 
     // Check that the offer was created
     const offer = simulator.getOffer(1n, bob);
@@ -290,7 +290,7 @@ describe("Kitties Contract Tests", () => {
 
     // This should fail due to contract constraints
     expect(() => {
-      simulator.buyKitty(1n, 50n); // Below asking price
+      simulator.createBuyOffer(1n, 50n); // Below asking price
     }).toThrow("Bid price too low");
   });
 
@@ -311,7 +311,7 @@ describe("Kitties Contract Tests", () => {
 
     // This should fail due to contract constraints
     expect(() => {
-      simulator.buyKitty(1n, 100n);
+      simulator.createBuyOffer(1n, 100n);
     }).toThrow("Kitty is not for sale");
   });
 

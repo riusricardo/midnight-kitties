@@ -47,7 +47,7 @@ import {
   type KittyListingData,
   type TransferKittyParams,
   type SetPriceParams,
-  type BuyKittyParams,
+  type CreateBuyOfferParams,
   type ApproveOfferParams,
   type GetOfferParams,
   type OfferData,
@@ -71,7 +71,7 @@ export interface DeployedKittiesAPI {
   readonly createKitty: () => Promise<void>;
   readonly transferKitty: (params: TransferKittyParams) => Promise<void>;
   readonly setPrice: (params: SetPriceParams) => Promise<void>;
-  readonly buyKitty: (params: BuyKittyParams) => Promise<void>;
+  readonly createBuyOffer: (params: CreateBuyOfferParams) => Promise<void>;
   readonly approveOffer: (params: ApproveOfferParams) => Promise<void>;
   readonly getOffer: (params: GetOfferParams) => Promise<OfferData>;
   readonly breedKitty: (params: BreedKittyParams) => Promise<void>;
@@ -168,10 +168,10 @@ export class KittiesAPI implements DeployedKittiesAPI {
     console.log(`Price set! Transaction added in block ${finalizedTxData.public.blockHeight}`);
   }
 
-  async buyKitty(params: BuyKittyParams): Promise<void> {
-    console.log(`Buying kitty ${params.kittyId} for ${params.bidPrice}...`);
-    const finalizedTxData = await this.deployedContract.callTx.buyKitty(params.kittyId, params.bidPrice);
-    console.log(`Kitty purchased! Transaction added in block ${finalizedTxData.public.blockHeight}`);
+  async createBuyOffer(params: CreateBuyOfferParams): Promise<void> {
+    console.log(`Creating buy offer for kitty ${params.kittyId} with bid price ${params.bidPrice}...`);
+    const finalizedTxData = await this.deployedContract.callTx.createBuyOffer(params.kittyId, params.bidPrice);
+    console.log(`Buy offer created! Transaction added in block ${finalizedTxData.public.blockHeight}`);
   }
 
   async approveOffer(params: ApproveOfferParams): Promise<void> {
@@ -646,14 +646,14 @@ export class KittiesAPI implements DeployedKittiesAPI {
   }
 
   /**
-   * Buy a kitty
+   * Create a buy offer for a kitty
    * @param kittiesApi - The KittiesAPI instance
-   * @param params - Buy kitty parameters
+   * @param params - Create buy offer parameters
    * @returns Transaction response with details
    */
-  static async buyKitty(kittiesApi: KittiesAPI, params: BuyKittyParams): Promise<TransactionResponse> {
-    console.log(`Buying kitty ${params.kittyId} for ${params.bidPrice}...`);
-    const finalizedTxData = await kittiesApi.deployedContract.callTx.buyKitty(params.kittyId, params.bidPrice);
+  static async createBuyOffer(kittiesApi: KittiesAPI, params: CreateBuyOfferParams): Promise<TransactionResponse> {
+    console.log(`Creating buy offer for kitty ${params.kittyId} with bid price ${params.bidPrice}...`);
+    const finalizedTxData = await kittiesApi.deployedContract.callTx.createBuyOffer(params.kittyId, params.bidPrice);
 
     return {
       txId: (finalizedTxData as any).public?.txId,

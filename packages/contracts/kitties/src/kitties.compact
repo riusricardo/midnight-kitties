@@ -76,7 +76,7 @@ export ledger allKittiesCount: Counter;
 export ledger genderSelector: Boolean;
 
 // Mapping for kitty ID to Account to offer data.
-export ledger buyKittyOffers: Map<Uint<64>, Map<ZswapCoinPublicKey, Offer>>;
+export ledger buyOffers: Map<Uint<64>, Map<ZswapCoinPublicKey, Offer>>;
 
 // Witness function to retrieve a random number (for DNA generation and breeding).
 // WARNING: This is a witness, meaning the value is injected from outside the circuit 
@@ -176,13 +176,13 @@ export circuit transferKitty(to: ZswapCoinPublicKey, kittyId: Uint<64>): [] {
   transfer(to, kittyId);
 
   // Transfering token resets offers if the kitty was but on sale before.
-  if (buyKittyOffers.member(disclose(kittyId))) {
+  if (buyOffers.member(disclose(kittyId))) {
     // Note: In a real implementation, currency reimbursment would occur here.
     // The currency transfer would be the bidPrice from the offer.
     // For now, only clear offers.
 
     // Empty the kitty offers.
-    buyKittyOffers.remove(disclose(kittyId));
+    buyOffers.remove(disclose(kittyId));
     
   }
 }
@@ -213,8 +213,8 @@ export circuit setPrice(kittyId: Uint<64>, price: Uint<64>): [] {
   kitties.insert(disclose(kittyId), disclose(updatedKitty));
 }
 
-// Allows a user to buy a kitty that is for sale, transferring ownership.
-export circuit buyKitty(kittyId: Uint<64>, bidPrice: Uint<64>): [] {
+// Allows a user to create an offer to buy a kitty that is for sale.
+export circuit createBuyOffer(kittyId: Uint<64>, bidPrice: Uint<64>): [] {
   const buyer = ownPublicKey();
 
   // Ensure the kitty exists.
@@ -242,11 +242,11 @@ export circuit buyKitty(kittyId: Uint<64>, bidPrice: Uint<64>): [] {
   };
 
   // Initialize the inner map if it doesn't exist.
-  if (!buyKittyOffers.member(disclose(kittyId))) {
-    buyKittyOffers.insert(disclose(kittyId), default<Map<ZswapCoinPublicKey, Offer>>);
+  if (!buyOffers.member(disclose(kittyId))) {
+    buyOffers.insert(disclose(kittyId), default<Map<ZswapCoinPublicKey, Offer>>);
   }
 
-  buyKittyOffers.lookup(disclose(kittyId)).insert(disclose(buyer), disclose(newOffer));
+  buyOffers.lookup(disclose(kittyId)).insert(disclose(buyer), disclose(newOffer));
 }
 
 // Approves a pending offer for a kitty, transferring ownership to the buyer.
@@ -265,7 +265,7 @@ export circuit approveOffer(kittyId: Uint<64>, buyer: ZswapCoinPublicKey): [] {
   assert(selectedOffer != default<Offer>, "Invalid offer.");
 
   // Empty the kitty offers.
-  buyKittyOffers.remove(disclose(kittyId));
+  buyOffers.remove(disclose(kittyId));
 
   // Prepare the updated kitty struct with new owner and reset sale info.
   const updatedKitty = Kitty {
@@ -364,10 +364,10 @@ export circuit getAllKittiesCount(): Uint<64> {
 // Helper function to get the Offer from map.
 export circuit getOffer(kittyId: Uint<64>, from: ZswapCoinPublicKey): Offer {
   if (
-    buyKittyOffers.member(disclose(kittyId)) &&
-    buyKittyOffers.lookup(disclose(kittyId)).member(disclose(from))
+    buyOffers.member(disclose(kittyId)) &&
+    buyOffers.lookup(disclose(kittyId)).member(disclose(from))
   ) {
-    return buyKittyOffers.lookup(disclose(kittyId)).lookup(disclose(from));
+    return buyOffers.lookup(disclose(kittyId)).lookup(disclose(from));
   } else {
     return default<Offer>;
   }

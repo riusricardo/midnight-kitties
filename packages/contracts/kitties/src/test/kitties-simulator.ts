@@ -110,8 +110,8 @@ export class KittiesSimulator {
   /**
    * Buy a kitty that is for sale
    */
-  public buyKitty(kittyId: bigint, bidPrice: bigint): void {
-    const result = this.contract.impureCircuits.buyKitty(
+  public createBuyOffer(kittyId: bigint, bidPrice: bigint): void {
+    const result = this.contract.impureCircuits.createBuyOffer(
       this.baseContext,
       kittyId,
       bidPrice

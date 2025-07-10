@@ -230,7 +230,7 @@ describe('API', () => {
     expect(kittyBeforeOffer.price).toEqual(price);
 
     // Test 1: Cannot make offer on own kitty (contract constraint)
-    await expect(kittiesApi.buyKitty({ kittyId: BigInt(1), bidPrice: BigInt(120) })).rejects.toThrow(
+    await expect(kittiesApi.createBuyOffer({ kittyId: BigInt(1), bidPrice: BigInt(120) })).rejects.toThrow(
       'Cannot buy your own kitty',
     );
 
@@ -245,7 +245,7 @@ describe('API', () => {
     expect(kittyAfterTransfer.price).toEqual(BigInt(0));
 
     // Test 3: Cannot make offer on kitty not for sale
-    await expect(kittiesApi.buyKitty({ kittyId: BigInt(1), bidPrice: BigInt(100) })).rejects.toThrow(
+    await expect(kittiesApi.createBuyOffer({ kittyId: BigInt(1), bidPrice: BigInt(100) })).rejects.toThrow(
       'Kitty is not for sale',
     );
 
@@ -268,7 +268,7 @@ describe('API', () => {
     await kittiesApi.createKitty();
 
     // Test 1: Cannot make offer on kitty not for sale
-    await expect(kittiesApi.buyKitty({ kittyId: BigInt(1), bidPrice: BigInt(100) })).rejects.toThrow(
+    await expect(kittiesApi.createBuyOffer({ kittyId: BigInt(1), bidPrice: BigInt(100) })).rejects.toThrow(
       'Kitty is not for sale',
     );
 
@@ -277,12 +277,12 @@ describe('API', () => {
     await kittiesApi.setPrice({ kittyId: BigInt(1), price });
 
     // Test 2: Cannot make offer below asking price
-    await expect(kittiesApi.buyKitty({ kittyId: BigInt(1), bidPrice: BigInt(50) })).rejects.toThrow(
+    await expect(kittiesApi.createBuyOffer({ kittyId: BigInt(1), bidPrice: BigInt(50) })).rejects.toThrow(
       'Bid price too low',
     );
 
     // Test 3: Cannot buy own kitty (even with valid price)
-    await expect(kittiesApi.buyKitty({ kittyId: BigInt(1), bidPrice: price })).rejects.toThrow(
+    await expect(kittiesApi.createBuyOffer({ kittyId: BigInt(1), bidPrice: price })).rejects.toThrow(
       'Cannot buy your own kitty',
     );
   });
