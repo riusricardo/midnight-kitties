@@ -48,7 +48,7 @@ import {
   formatContractAddress,
   formatCount,
   safeParseBigInt,
-  safeParseAddress,
+  convertWalletPublicKeyToBytes,
   contractConfig,
 } from '@repo/kitties-api';
 import { NodeZkConfigProvider } from '@midnight-ntwrk/midnight-js-node-zk-config-provider';
@@ -162,7 +162,7 @@ const transferKitty = async (kittiesApi: KittiesAPI, rli: Interface): Promise<vo
     const kittyIdStr = await rli.question('Enter the kitty ID to transfer: ');
     const kittyId = safeParseBigInt(kittyIdStr);
 
-    const toAddressStr = await rli.question('Enter the recipient address (hex): ');
+    const toAddressStr = await rli.question('Enter the recipient address: ');
     const toAddress = safeParseAddress(toAddressStr);
 
     logger.info(`Transferring kitty #${kittyId} to ${formatAddress(toAddress)}...`);
@@ -199,9 +199,9 @@ const buyKitty = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> =
 
     logger.info(`Buying kitty #${kittyId} for ${formatPrice(bidPrice)}...`);
     await kittiesApi.buyKitty({ kittyId, bidPrice });
-    logger.info('✅ Kitty purchased successfully!');
+    logger.info('✅ Kitty buy offer created!');
   } catch (error) {
-    logger.error(`Failed to buy kitty: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error(`Failed to create buy offer kitty: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
 
@@ -450,11 +450,11 @@ const nftOperations = async (kittiesApi: KittiesAPI, rli: Interface): Promise<vo
 
 const checkBalance = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
   try {
-    const addressStr = await rli.question('Enter the address to check balance for (hex): ');
+    const addressStr = await rli.question('Enter the address to check balance for: ');
     const address = safeParseAddress(addressStr);
 
     const balance = await kittiesApi.balanceOf({ bytes: address });
-    logger.info(`Address ${formatAddress(address)} has ${formatCount(balance)} kitties`);
+    logger.info(`Address ${address} has ${formatCount(balance)} kitties`);
   } catch (error) {
     logger.error(`Failed to check balance: ${error instanceof Error ? error.message : String(error)}`);
   }
@@ -474,13 +474,13 @@ const checkOwner = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void>
 
 const approveToken = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
   try {
-    const toAddressStr = await rli.question('Enter the address to approve (hex): ');
+    const toAddressStr = await rli.question('Enter the address to approve: ');
     const toAddress = safeParseAddress(toAddressStr);
 
     const tokenIdStr = await rli.question('Enter the token ID to approve: ');
     const tokenId = safeParseBigInt(tokenIdStr);
 
-    logger.info(`Approving ${formatAddress(toAddress)} for token ${tokenId}...`);
+    logger.info(`Approving ${toAddress} for token ${tokenId}...`);
     await kittiesApi.approve({ to: { bytes: toAddress }, tokenId });
     logger.info('✅ Token approved successfully!');
   } catch (error) {
@@ -502,15 +502,13 @@ const checkApproved = async (kittiesApi: KittiesAPI, rli: Interface): Promise<vo
 
 const setApprovalForAll = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
   try {
-    const operatorAddressStr = await rli.question('Enter the operator address (hex): ');
+    const operatorAddressStr = await rli.question('Enter the operator address: ');
     const operatorAddress = safeParseAddress(operatorAddressStr);
 
     const approvedStr = await rli.question('Approve? (y/n): ');
     const approved = approvedStr.toLowerCase() === 'y' || approvedStr.toLowerCase() === 'yes';
 
-    logger.info(
-      `Setting approval for all tokens - operator: ${formatAddress(operatorAddress)}, approved: ${approved}...`,
-    );
+    logger.info(`Setting approval for all tokens - operator: ${operatorAddress}, approved: ${approved}...`);
     await kittiesApi.setApprovalForAll({ operator: { bytes: operatorAddress }, approved });
     logger.info('✅ Approval for all tokens set successfully!');
   } catch (error) {
@@ -520,15 +518,15 @@ const setApprovalForAll = async (kittiesApi: KittiesAPI, rli: Interface): Promis
 
 const checkApprovedForAll = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
   try {
-    const ownerAddressStr = await rli.question('Enter the owner address (hex): ');
+    const ownerAddressStr = await rli.question('Enter the owner address: ');
     const ownerAddress = safeParseAddress(ownerAddressStr);
 
-    const operatorAddressStr = await rli.question('Enter the operator address (hex): ');
+    const operatorAddressStr = await rli.question('Enter the operator address: ');
     const operatorAddress = safeParseAddress(operatorAddressStr);
 
     const isApproved = await kittiesApi.isApprovedForAll({ bytes: ownerAddress }, { bytes: operatorAddress });
     logger.info(
-      `Operator ${formatAddress(operatorAddress)} is ${isApproved ? 'approved' : 'not approved'} for all tokens of ${formatAddress(ownerAddress)}`,
+      `Operator ${operatorAddress} is ${isApproved ? 'approved' : 'not approved'} for all tokens of ${ownerAddress}`,
     );
   } catch (error) {
     logger.error(`Failed to check approval for all: ${error instanceof Error ? error.message : String(error)}`);
@@ -537,13 +535,13 @@ const checkApprovedForAll = async (kittiesApi: KittiesAPI, rli: Interface): Prom
 
 const transferToken = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
   try {
-    const toAddressStr = await rli.question('Enter the recipient address (hex): ');
+    const toAddressStr = await rli.question('Enter the recipient address: ');
     const toAddress = safeParseAddress(toAddressStr);
 
     const tokenIdStr = await rli.question('Enter the token ID to transfer: ');
     const tokenId = safeParseBigInt(tokenIdStr);
 
-    logger.info(`Transferring token ${tokenId} to ${formatAddress(toAddress)}...`);
+    logger.info(`Transferring token ${tokenId} to ${toAddress}...`);
     await kittiesApi.transfer({ to: { bytes: toAddress }, tokenId });
     logger.info('✅ Token transferred successfully!');
   } catch (error) {
@@ -553,47 +551,20 @@ const transferToken = async (kittiesApi: KittiesAPI, rli: Interface): Promise<vo
 
 const transferTokenFrom = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
   try {
-    const fromAddressStr = await rli.question('Enter the sender address (hex): ');
+    const fromAddressStr = await rli.question('Enter the sender address: ');
     const fromAddress = safeParseAddress(fromAddressStr);
 
-    const toAddressStr = await rli.question('Enter the recipient address (hex): ');
+    const toAddressStr = await rli.question('Enter the recipient address: ');
     const toAddress = safeParseAddress(toAddressStr);
 
     const tokenIdStr = await rli.question('Enter the token ID to transfer: ');
     const tokenId = safeParseBigInt(tokenIdStr);
 
-    logger.info(`Transferring token ${tokenId} from ${formatAddress(fromAddress)} to ${formatAddress(toAddress)}...`);
+    logger.info(`Transferring token ${tokenId} from ${fromAddress} to ${toAddress}...`);
     await kittiesApi.transferFrom({ from: { bytes: fromAddress }, to: { bytes: toAddress }, tokenId });
     logger.info('✅ Token transferred successfully!');
   } catch (error) {
     logger.error(`Failed to transfer token: ${error instanceof Error ? error.message : String(error)}`);
-  }
-};
-
-// Offer operations
-const OFFER_OPERATIONS_QUESTION = `
-Offer Operations:
-  1. View offers for a kitty
-  2. Approve an offer
-  3. Back to main menu
-Which would you like to do? `;
-
-const offerOperations = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
-  while (true) {
-    const choice = await rli.question(OFFER_OPERATIONS_QUESTION);
-    switch (choice) {
-      case '1':
-        await viewOffers(kittiesApi, rli);
-        break;
-      case '2':
-        await approveOffer(kittiesApi, rli);
-        break;
-      case '3':
-        logger.info('Returning to main menu...');
-        return;
-      default:
-        logger.error(`Invalid choice: ${choice}`);
-    }
   }
 };
 
@@ -602,11 +573,33 @@ const viewOffers = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void>
     const kittyIdStr = await rli.question('Enter the kitty ID to view offers for: ');
     const kittyId = safeParseBigInt(kittyIdStr);
 
-    const fromAddressStr = await rli.question('Enter the buyer address to check offer from (hex): ');
+    const fromAddressStr = await rli.question('Enter the buyer address to check offer from: ');
     const fromAddress = safeParseAddress(fromAddressStr);
 
+    // Add validation
+    if (fromAddress.length !== 32) {
+      logger.error(`Invalid address length: expected 32 bytes, got ${fromAddress.length} bytes`);
+      logger.error(`Address bytes: ${Array.from(fromAddress).join(',')}`);
+      return;
+    }
+
+    // First check if the kitty exists
+    try {
+      await kittiesApi.getKitty(kittyId);
+    } catch {
+      logger.error(`Kitty #${kittyId} does not exist or cannot be accessed`);
+      return;
+    }
+
     logger.info(`Fetching offer for kitty #${kittyId} from ${formatAddress(fromAddress)}...`);
+
+    // @ts-ignore - Method exists but may not be in current type definitions
     const offer = await kittiesApi.getOffer({ kittyId, from: { bytes: fromAddress } });
+
+    if (!offer) {
+      logger.info(`No offer found for kitty #${kittyId} from ${formatAddress(fromAddress)}`);
+      return;
+    }
 
     logger.info(`\n=== Offer Details ===`);
     logger.info(`Kitty ID: ${offer.kittyId}`);
@@ -614,6 +607,10 @@ const viewOffers = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void>
     logger.info(`Price: ${formatPrice(offer.price)}`);
   } catch (error) {
     logger.error(`Failed to fetch offer: ${error instanceof Error ? error.message : String(error)}`);
+    if (error instanceof Error && error.message === 'Unexpected length of input') {
+      logger.error('This error often indicates an issue with address parsing or format.');
+      logger.error('Please ensure you are using a valid wallet address.');
+    }
   }
 };
 
@@ -622,14 +619,44 @@ const approveOffer = async (kittiesApi: KittiesAPI, rli: Interface): Promise<voi
     const kittyIdStr = await rli.question('Enter the kitty ID to approve offer for: ');
     const kittyId = safeParseBigInt(kittyIdStr);
 
-    const buyerAddressStr = await rli.question('Enter the buyer address (hex): ');
+    const buyerAddressStr = await rli.question('Enter the buyer address: ');
     const buyerAddress = safeParseAddress(buyerAddressStr);
 
+    // Add validation
+    if (buyerAddress.length !== 32) {
+      logger.error(`Invalid address length: expected 32 bytes, got ${buyerAddress.length} bytes`);
+      logger.error(`Address bytes: ${Array.from(buyerAddress).join(',')}`);
+      return;
+    }
+
     logger.info(`Approving offer for kitty #${kittyId} from ${formatAddress(buyerAddress)}...`);
+
+    // @ts-ignore - Method exists but may not be in current type definitions
     await kittiesApi.approveOffer({ kittyId, buyer: { bytes: buyerAddress } });
     logger.info('✅ Offer approved successfully!');
   } catch (error) {
     logger.error(`Failed to approve offer: ${error instanceof Error ? error.message : String(error)}`);
+    if (error instanceof Error && error.message === 'Unexpected length of input') {
+      logger.error('This error often indicates an issue with address parsing or format.');
+      logger.error('Please ensure you are using a valid wallet address.');
+    }
+  }
+};
+
+// Helper function to parse addresss for CLI input
+const safeParseAddress = (input: string): Uint8Array => {
+  if (!input || typeof input !== 'string') {
+    throw new Error('Input must be a non-empty string');
+  }
+  try {
+    logger.debug(`Parsing address input: ${input}`);
+    const result = convertWalletPublicKeyToBytes(input);
+    logger.debug(`Parsed address result: ${result.length} bytes - ${Array.from(result).join(',')}`);
+    return result;
+  } catch (error) {
+    logger.error(`Address parsing failed for input: ${input}`);
+    logger.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`Invalid address format: ${input}. Please enter a valid address.`);
   }
 };
 
