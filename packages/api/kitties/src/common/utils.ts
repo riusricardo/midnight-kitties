@@ -24,6 +24,23 @@ import { getZswapNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 import { parseCoinPublicKeyToHex, parseEncPublicKeyToHex } from '@midnight-ntwrk/midnight-js-utils';
 import { ShieldedAddress, MidnightBech32m } from '@midnight-ntwrk/wallet-sdk-address-format';
 
+/**
+ * Safe wrapper for parseAddress to handle potential errors
+ * @param input - The input string to parse
+ * @returns The parsed address or throws an error
+ */
+export function safeParseAddress(input: string): Uint8Array {
+  if (!input || typeof input !== 'string') {
+    throw new Error('Input must be a non-empty string');
+  }
+  try {
+    const result = convertWalletPublicKeyToBytes(input);
+    return result;
+  } catch (error) {
+    throw new Error(`Invalid address format: ${input}. Please enter a valid address.`);
+  }
+}
+
 // Helper function to convert wallet public key to bytes format
 // This handles the conversion from Bech32m format (or other formats) to the 32-byte format expected by the contract
 export function convertWalletPublicKeyToBytes(input: unknown): Uint8Array {
@@ -274,16 +291,4 @@ export function safeParseBigInt(input: string): bigint {
     throw new Error('Input must be a non-empty string');
   }
   return parseBigInt(input);
-}
-
-/**
- * Safe wrapper for parseAddress to handle potential errors
- * @param input - The input string to parse
- * @returns The parsed address or throws an error
- */
-export function safeParseAddress(input: string): Uint8Array {
-  if (!input || typeof input !== 'string') {
-    throw new Error('Input must be a non-empty string');
-  }
-  return parseAddress(input);
 }

@@ -38,6 +38,7 @@ import {
   configureProviders,
 } from '@repo/kitties-api/node-api';
 import { setLogger, KittiesAPI } from '@repo/kitties-api';
+import type { Offer } from '@midnight-ntwrk/kitties-contract';
 import {
   formatDNA,
   formatGenderEnum,
@@ -48,8 +49,8 @@ import {
   formatContractAddress,
   formatCount,
   safeParseBigInt,
-  convertWalletPublicKeyToBytes,
   contractConfig,
+  safeParseAddress,
 } from '@repo/kitties-api';
 import { NodeZkConfigProvider } from '@midnight-ntwrk/midnight-js-node-zk-config-provider';
 
@@ -79,7 +80,7 @@ You can do one of the following:
   7. Breed kitties
   8. View kitty details
   9. View contract stats
-  10. View offers
+  10. View all offers for a kitty
   11. Approve offer
   12. NFT Operations
   13. Exit
@@ -573,15 +574,40 @@ const viewOffers = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void>
     const kittyIdStr = await rli.question('Enter the kitty ID to view offers for: ');
     const kittyId = safeParseBigInt(kittyIdStr);
 
-    const fromAddressStr = await rli.question('Enter the buyer address to check offer from: ');
-    const fromAddress = safeParseAddress(fromAddressStr);
-
-    // Add validation
-    if (fromAddress.length !== 32) {
-      logger.error(`Invalid address length: expected 32 bytes, got ${fromAddress.length} bytes`);
-      logger.error(`Address bytes: ${Array.from(fromAddress).join(',')}`);
+    // First check if the kitty exists
+    try {
+      await kittiesApi.getKitty(kittyId);
+    } catch {
+      logger.error(`Kitty #${kittyId} does not exist or cannot be accessed`);
       return;
     }
+
+    logger.info(`Fetching all offers for kitty #${kittyId}...`);
+
+    // @ts-ignore - Method exists but may not be in current type definitions
+    const offers: Offer[] = await kittiesApi.getOffersForKitty(kittyId);
+
+    if (!offers || offers.length === 0) {
+      logger.info(`No offers found for kitty #${kittyId}`);
+      return;
+    }
+
+    logger.info(`\n=== ${offers.length} Offer(s) Found for Kitty #${kittyId} ===`);
+    offers.forEach((offer: Offer, index: number) => {
+      logger.info(`\n--- Offer ${index + 1} ---`);
+      logger.info(`Kitty ID: ${offer.kittyId}`);
+      logger.info(`Buyer: ${formatAddress(offer.buyer.bytes)}`);
+      logger.info(`Price: ${formatPrice(offer.price)}`);
+    });
+  } catch (error) {
+    logger.error(`Failed to fetch offers: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+
+const approveOffer = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
+  try {
+    const kittyIdStr = await rli.question('Enter the kitty ID to approve offer for: ');
+    const kittyId = safeParseBigInt(kittyIdStr);
 
     // First check if the kitty exists
     try {
@@ -591,72 +617,58 @@ const viewOffers = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void>
       return;
     }
 
-    logger.info(`Fetching offer for kitty #${kittyId} from ${formatAddress(fromAddress)}...`);
+    logger.info(`Fetching offers for kitty #${kittyId}...`);
 
     // @ts-ignore - Method exists but may not be in current type definitions
-    const offer = await kittiesApi.getOffer({ kittyId, from: { bytes: fromAddress } });
+    const offers: Offer[] = await kittiesApi.getOffersForKitty(kittyId);
 
-    if (!offer) {
-      logger.info(`No offer found for kitty #${kittyId} from ${formatAddress(fromAddress)}`);
+    if (!offers || offers.length === 0) {
+      logger.info(`No offers found for kitty #${kittyId}`);
       return;
     }
 
-    logger.info(`\n=== Offer Details ===`);
-    logger.info(`Kitty ID: ${offer.kittyId}`);
-    logger.info(`Buyer: ${formatAddress(offer.buyer.bytes)}`);
-    logger.info(`Price: ${formatPrice(offer.price)}`);
-  } catch (error) {
-    logger.error(`Failed to fetch offer: ${error instanceof Error ? error.message : String(error)}`);
-    if (error instanceof Error && error.message === 'Unexpected length of input') {
-      logger.error('This error often indicates an issue with address parsing or format.');
-      logger.error('Please ensure you are using a valid wallet address.');
+    // Display all offers
+    logger.info(`\n=== ${offers.length} Offer(s) Found for Kitty #${kittyId} ===`);
+    offers.forEach((offer: Offer, index: number) => {
+      logger.info(`\n--- Offer ${index + 1} ---`);
+      logger.info(`Buyer: ${formatAddress(offer.buyer.bytes)}`);
+      logger.info(`Price: ${formatPrice(offer.price)}`);
+    });
+
+    if (offers.length === 1) {
+      // If only one offer, ask for confirmation
+      const confirm = await rli.question(
+        `\nApprove the offer from ${formatAddress(offers[0].buyer.bytes)} for ${formatPrice(offers[0].price)}? (y/n): `,
+      );
+      if (confirm.toLowerCase() !== 'y' && confirm.toLowerCase() !== 'yes') {
+        logger.info('Offer approval cancelled');
+        return;
+      }
+
+      logger.info(`Approving offer for kitty #${kittyId} from ${formatAddress(offers[0].buyer.bytes)}...`);
+      // @ts-ignore - Method exists but may not be in current type definitions
+      await kittiesApi.approveOffer({ kittyId, buyer: offers[0].buyer });
+      logger.info('✅ Offer approved successfully!');
+    } else {
+      // Multiple offers, let user choose
+      const choiceStr = await rli.question(`\nWhich offer would you like to approve? (1-${offers.length}): `);
+      const choice = parseInt(choiceStr, 10);
+
+      if (isNaN(choice) || choice < 1 || choice > offers.length) {
+        logger.error(`Invalid choice. Please enter a number between 1 and ${offers.length}`);
+        return;
+      }
+
+      const selectedOffer = offers[choice - 1];
+      logger.info(
+        `Approving offer ${choice} for kitty #${kittyId} from ${formatAddress(selectedOffer.buyer.bytes)}...`,
+      );
+      // @ts-ignore - Method exists but may not be in current type definitions
+      await kittiesApi.approveOffer({ kittyId, buyer: selectedOffer.buyer });
+      logger.info('✅ Offer approved successfully!');
     }
-  }
-};
-
-const approveOffer = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
-  try {
-    const kittyIdStr = await rli.question('Enter the kitty ID to approve offer for: ');
-    const kittyId = safeParseBigInt(kittyIdStr);
-
-    const buyerAddressStr = await rli.question('Enter the buyer address: ');
-    const buyerAddress = safeParseAddress(buyerAddressStr);
-
-    // Add validation
-    if (buyerAddress.length !== 32) {
-      logger.error(`Invalid address length: expected 32 bytes, got ${buyerAddress.length} bytes`);
-      logger.error(`Address bytes: ${Array.from(buyerAddress).join(',')}`);
-      return;
-    }
-
-    logger.info(`Approving offer for kitty #${kittyId} from ${formatAddress(buyerAddress)}...`);
-
-    // @ts-ignore - Method exists but may not be in current type definitions
-    await kittiesApi.approveOffer({ kittyId, buyer: { bytes: buyerAddress } });
-    logger.info('✅ Offer approved successfully!');
   } catch (error) {
     logger.error(`Failed to approve offer: ${error instanceof Error ? error.message : String(error)}`);
-    if (error instanceof Error && error.message === 'Unexpected length of input') {
-      logger.error('This error often indicates an issue with address parsing or format.');
-      logger.error('Please ensure you are using a valid wallet address.');
-    }
-  }
-};
-
-// Helper function to parse addresss for CLI input
-const safeParseAddress = (input: string): Uint8Array => {
-  if (!input || typeof input !== 'string') {
-    throw new Error('Input must be a non-empty string');
-  }
-  try {
-    logger.debug(`Parsing address input: ${input}`);
-    const result = convertWalletPublicKeyToBytes(input);
-    logger.debug(`Parsed address result: ${result.length} bytes - ${Array.from(result).join(',')}`);
-    return result;
-  } catch (error) {
-    logger.error(`Address parsing failed for input: ${input}`);
-    logger.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
-    throw new Error(`Invalid address format: ${input}. Please enter a valid address.`);
   }
 };
 

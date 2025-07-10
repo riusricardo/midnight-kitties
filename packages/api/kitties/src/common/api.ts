@@ -46,7 +46,6 @@ import {
   type DeployedKittiesContract,
   type KittyData,
   type KittyListingData,
-  type KittyOffersData,
   type TransferKittyParams,
   type SetPriceParams,
   type CreateBuyOfferParams,
