@@ -174,6 +174,15 @@ describe("Kitties Contract Tests", () => {
     kitty = simulator.getKitty(1n);
     expect(kitty.forSale).toBe(false);
     expect(kitty.price).toBe(0n);
+
+    // Check that the offer was removed after approval
+    // (getOffer should return default/empty offer after approval)
+    const offerAfterApproval = simulator.getOffer(1n, bob);
+    expect(offerAfterApproval).toEqual({
+      kittyId: 0n,
+      buyer: { bytes: new Uint8Array(32) },
+      price: 0n
+    });
   });
 
   it("should handle multiple offers for the same kitty", () => {
@@ -215,6 +224,22 @@ describe("Kitties Contract Tests", () => {
     expect(simulator.balanceOf(alice)).toBe(0n);
     expect(simulator.balanceOf(bob)).toBe(0n);
     expect(simulator.balanceOf(charlie)).toBe(1n);
+
+    // Check that all offers were cleared after approval (including Bob's rejected offer)
+    const bobOfferAfterApproval = simulator.getOffer(1n, bob);
+    const charlieOfferAfterApproval = simulator.getOffer(1n, charlie);
+    
+    expect(bobOfferAfterApproval).toEqual({
+      kittyId: 0n,
+      buyer: { bytes: new Uint8Array(32) },
+      price: 0n
+    });
+    
+    expect(charlieOfferAfterApproval).toEqual({
+      kittyId: 0n,
+      buyer: { bytes: new Uint8Array(32) },
+      price: 0n
+    });
   });
 
   it("should handle offer rejection scenarios", () => {

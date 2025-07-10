@@ -222,7 +222,7 @@ export circuit buyKitty(kittyId: Uint<64>, bidPrice: Uint<64>): [] {
   assert(bidPrice >= kitty.price, "Bid price too low");
 
   // Note: In a real implementation, currency transfer would occur here.
-  // For now, only transfer the kitty ownership.
+  // For now, only create the offer.
 
   const newOffer = Offer {
     kittyId: kittyId,
@@ -242,11 +242,7 @@ export circuit buyKitty(kittyId: Uint<64>, bidPrice: Uint<64>): [] {
 // Only the current owner can approve an offer.
 // Note: Currency transfer is not implemented here; only ownership is transferred.
 export circuit approveOffer(kittyId: Uint<64>, buyer: ZswapCoinPublicKey): [] {
-  const seller = ownPublicKey();
-  assert(seller == ownerOf(disclose(kittyId)), "Only owner can sell.");
-
-  // Ensure the kitty exists in the ledger.
-  assert(tokenExists(disclose(kittyId)), "Kitty does not exist");
+  assert(ownPublicKey() == ownerOf(disclose(kittyId)), "Only owner can sell.");
 
   // Retrieve the kitty's current data.
   const kitty = kitties.lookup(disclose(kittyId));
@@ -256,6 +252,9 @@ export circuit approveOffer(kittyId: Uint<64>, buyer: ZswapCoinPublicKey): [] {
 
   // Ensure the offer is valid (not default).
   assert(selectedOffer != default<Offer>, "Invalid offer.");
+
+  // Empty the kitty offers.
+  buyKittyOffers.remove(disclose(kittyId));
 
   // Prepare the updated kitty struct with new owner and reset sale info.
   const updatedKitty = Kitty {
@@ -275,7 +274,7 @@ export circuit approveOffer(kittyId: Uint<64>, buyer: ZswapCoinPublicKey): [] {
   // For now, only transfer the kitty ownership.
 
   // Transfer the NFT to the buyer using the imported NFT module.
-  transferFrom(seller, buyer, kittyId);
+  transfer(buyer, kittyId);
 }
 
 // Breeds two kitties to create a new offspring with combined DNA.
