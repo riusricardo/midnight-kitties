@@ -31,7 +31,7 @@ import { setLogger, KittiesAPI, currentDir } from '@repo/kitties-api';
 import { TestEnvironment } from './commons';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { NodeZkConfigProvider } from '@midnight-ntwrk/midnight-js-node-zk-config-provider';
-import { contractConfig, createLogger } from '@repo/kitties-api';
+import { contractConfig, createLogger, convertWalletPublicKeyToBytes } from '@repo/kitties-api';
 
 const logDir = path.resolve(currentDir, '..', 'logs', 'tests', `${new Date().toISOString()}.log`);
 const logger = await createLogger(logDir);
@@ -40,6 +40,13 @@ describe('API', () => {
   let testEnvironment: TestEnvironment;
   let wallet: Wallet & Resource;
   let providers: KittiesProviders;
+
+  // Helper method to get the current wallet address in the correct Hex Bytes format
+  function getWalletAddress(): { bytes: Uint8Array } {
+    const coinPublicKey = this.providers.walletProvider.coinPublicKey;
+    const bytes = convertWalletPublicKeyToBytes(coinPublicKey);
+    return { bytes };
+  }
 
   beforeAll(
     async () => {
@@ -100,7 +107,7 @@ describe('API', () => {
     expect(kittiesApi).not.toBeNull();
 
     // Test address conversion via API
-    const walletBytes = kittiesApi.getWalletAddress();
+    const walletBytes = getWalletAddress();
 
     // Create first kitty
     await kittiesApi.createKitty();
@@ -265,7 +272,7 @@ describe('API', () => {
     const kittiesApi = await KittiesAPI.deploy(providers, {});
 
     // Get wallet address using API conversion
-    const walletBytes = kittiesApi.getWalletAddress();
+    const walletBytes = getWalletAddress()
 
     // Create a test address for ownership operations
     const testAddress = { bytes: new Uint8Array(32).fill(1) };
@@ -322,7 +329,7 @@ describe('API', () => {
     const kittiesApi = await KittiesAPI.deploy(providers, {});
 
     // Get wallet address
-    const walletBytes = kittiesApi.getWalletAddress();
+    const walletBytes = getWalletAddress()
 
     // Create test addresses for approval operations
     const approvedAddress = { bytes: new Uint8Array(32).fill(1) };

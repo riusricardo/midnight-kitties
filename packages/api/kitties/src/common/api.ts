@@ -38,7 +38,6 @@ import { deployContract, findDeployedContract } from '@midnight-ntwrk/midnight-j
 
 import { assertIsContractAddress, toHex, parseCoinPublicKeyToHex } from '@midnight-ntwrk/midnight-js-utils';
 import type { PrivateStateProvider } from '@midnight-ntwrk/midnight-js-types';
-import { convertWalletPublicKeyToBytes } from './utils';
 import { map, type Observable, retry } from 'rxjs';
 import {
   type KittiesContract,
@@ -81,8 +80,7 @@ export interface DeployedKittiesAPI {
   readonly getUserKitties: (owner: { bytes: Uint8Array }) => Promise<KittyData[]>;
 
   // Wallet convenience methods
-  readonly getWalletAddress: () => { bytes: Uint8Array };
-  readonly getMyKitties: () => Promise<KittyData[]>;
+  readonly getMyKitties: (from: { bytes: Uint8Array }) => Promise<KittyData[]>;
 
   // NFT standard operations
   readonly balanceOf: (owner: { bytes: Uint8Array }) => Promise<bigint>;
@@ -131,21 +129,13 @@ export class KittiesAPI implements DeployedKittiesAPI {
   readonly deployedContractAddress: ContractAddress;
   readonly state$: Observable<KittiesState>;
 
-  // Helper method to get the current wallet address in the correct Hex Bytes format
-  getWalletAddress(): { bytes: Uint8Array } {
-    const coinPublicKey = this.providers.walletProvider.coinPublicKey;
-    const bytes = convertWalletPublicKeyToBytes(coinPublicKey);
-    return { bytes };
-  }
-
   //  =====================================
   //   KITTY-SPECIFIC OPERATIONS
   //  =====================================
 
   // Convenience method to get kitties for the current wallet
-  async getMyKitties(): Promise<KittyData[]> {
-    const walletAddress = this.getWalletAddress();
-    return await this.getUserKitties(walletAddress);
+  async getMyKitties(from: { bytes: Uint8Array }): Promise<KittyData[]> {
+    return await this.getUserKitties(from);
   }
 
   async createKitty(): Promise<void> {

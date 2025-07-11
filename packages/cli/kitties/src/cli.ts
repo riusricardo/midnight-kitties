@@ -51,6 +51,7 @@ import {
   safeParseBigInt,
   contractConfig,
   safeParseAddress,
+  convertWalletPublicKeyToBytes,
 } from '@repo/kitties-api';
 import { NodeZkConfigProvider } from '@midnight-ntwrk/midnight-js-node-zk-config-provider';
 
@@ -108,10 +109,15 @@ const createKitty = async (kittiesApi: KittiesAPI): Promise<void> => {
   }
 };
 
-const viewMyKitties = async (kittiesApi: KittiesAPI): Promise<void> => {
+const viewMyKitties = async (kittiesApi: KittiesAPI, providers: KittiesProviders): Promise<void> => {
   try {
     logger.info('Fetching your kitties...');
-    const kitties = await kittiesApi.getMyKitties();
+    // Get the wallet's public key and convert to bytes format
+    const coinPublicKey = providers.walletProvider.coinPublicKey;
+    const walletBytes = convertWalletPublicKeyToBytes(coinPublicKey);
+    const walletAddress = { bytes: walletBytes };
+    
+    const kitties = await kittiesApi.getMyKitties(walletAddress);
 
     if (kitties.length === 0) {
       logger.info("You don't own any kitties yet.");
@@ -320,7 +326,7 @@ const mainLoop = async (providers: KittiesProviders, rli: Interface): Promise<vo
         await createKitty(kittiesApi);
         break;
       case '2':
-        await viewMyKitties(kittiesApi);
+        await viewMyKitties(kittiesApi, providers);
         break;
       case '3':
         await viewKittiesForSale(kittiesApi);
