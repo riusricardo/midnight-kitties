@@ -215,11 +215,10 @@ export circuit transferKittyFrom(from: ZswapCoinPublicKey, to: ZswapCoinPublicKe
 
     // Empty the kitty offers.
     buyOffers.remove(disclose(kittyId));
+  }
 
   // Transfer the NFT using the imported NFT module.
   transferFrom(from, to, kittyId);
-    
-  }
 }
 
 // Sets the price for a kitty and marks it as for sale if price > 0.
