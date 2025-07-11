@@ -31,7 +31,8 @@ import { LocalStateProvider } from '../contexts/LocalStateProviderContext.js';
 import { RuntimeConfigurationProvider, useRuntimeConfiguration } from '../config/RuntimeConfiguration.js';
 import { MidnightWalletProvider, useMidnightWallet } from './MidnightWallet.js';
 import * as pino from 'pino';
-import { type NetworkId, setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
+import { type NetworkId, setNetworkId, getZswapNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
+import { parseCoinPublicKeyToHex } from '@midnight-ntwrk/midnight-js-utils';
 import { KittiesReaderApplication } from './KittiesReader.js';
 import { type Logger } from 'pino';
 import { createKittiesProviders } from '@repo/kitties-api/browser-api';
@@ -101,10 +102,30 @@ const KittiesAppContent: React.FC<{ logger: Logger }> = () => {
                 </Typography>
               </Paper>
             ) : kittiesProviders ? (
-              <KittiesReaderApplication
-                providers={kittiesProviders}
-                walletPublicKey={walletState.walletAPI?.coinPublicKey}
-              />
+              <>
+                {/* Debug info */}
+                <Paper elevation={1} sx={{ p: 2, mb: 2, backgroundColor: '#f8f9fa' }}>
+                  <Typography variant="h6" gutterBottom>
+                    Debug Info:
+                  </Typography>
+                  <Typography variant="body2">Address: {walletState.address}</Typography>
+                  <Typography variant="body2">CoinPublicKey: {walletState.walletAPI?.coinPublicKey}</Typography>
+                  {walletState.walletAPI?.coinPublicKey && (
+                    <Typography variant="body2">
+                      CoinPublicKey (hex):{' '}
+                      {parseCoinPublicKeyToHex(walletState.walletAPI.coinPublicKey, getZswapNetworkId())}
+                    </Typography>
+                  )}
+                </Paper>
+                <KittiesReaderApplication
+                  providers={kittiesProviders}
+                  walletPublicKey={
+                    walletState.walletAPI?.coinPublicKey
+                      ? parseCoinPublicKeyToHex(walletState.walletAPI.coinPublicKey, getZswapNetworkId())
+                      : undefined
+                  }
+                />
+              </>
             ) : (
               <Paper elevation={2} sx={{ p: 4, textAlign: 'center' }}>
                 <Typography variant="h6" color="error">

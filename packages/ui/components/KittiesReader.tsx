@@ -23,28 +23,27 @@
  * damages or losses arising from the use of this software.
  */
 
-/* global console */
+/* global console, window */
 import React, { useState, useEffect } from 'react';
 import { type ContractAddress } from '@midnight-ntwrk/compact-runtime';
 import { CircularProgress } from '@mui/material';
 import { KittyCard, type KittyData } from './KittyCard';
+import { KittiesAPI, type KittiesProviders } from '@repo/kitties-api';
 
-// Simple types for the API - matching actual MidnightProviders structure
-interface KittiesProviders {
-  publicDataProvider: any;
-  privateStateProvider: any;
-  // Note: prover is not available in the actual MidnightProviders type
-}
-
-interface KittiesAPI {
-  getMyKitties(_walletPublicKey: string): Promise<KittyData[]>;
-  createKitty(): Promise<void>;
-}
+// Helper function to convert hex string to Uint8Array
+const hexToUint8Array = (hex: string): Uint8Array => {
+  const cleanHex = hex.replace(/^0x/, '');
+  const bytes = new Uint8Array(cleanHex.length / 2);
+  for (let i = 0; i < cleanHex.length; i += 2) {
+    bytes[i / 2] = parseInt(cleanHex.substr(i, 2), 16);
+  }
+  return bytes;
+};
 
 interface KittiesReaderProps {
   contractAddress: ContractAddress;
   providers: KittiesProviders;
-  walletPublicKey?: string;
+  walletPublicKey?: { bytes: Uint8Array };
 }
 
 export const KittiesReader: React.FC<KittiesReaderProps> = ({ contractAddress, providers, walletPublicKey }) => {
@@ -61,68 +60,20 @@ export const KittiesReader: React.FC<KittiesReaderProps> = ({ contractAddress, p
         setIsLoading(true);
         setError(null);
 
-        // Create a mock API implementation for development/testing
-        // TODO: Replace with actual KittiesAPI when imports are fixed
-        const mockAPI: KittiesAPI = {
-          async getMyKitties(walletPublicKey: string): Promise<KittyData[]> {
-            console.log('Mock getMyKitties called for wallet:', walletPublicKey);
+        // Connect to the real contract using KittiesAPI
+        console.log('Connecting to contract at:', contractAddress);
+        const connectedAPI = await KittiesAPI.connect(providers, contractAddress);
 
-            // Simulate network delay
-            await new Promise((resolve) => setTimeout(resolve, 500));
-
-            // Return diverse mock data for testing
-            return [
-              {
-                id: 1n,
-                dna: 12345678901234567890n,
-                gender: 0,
-                owner: { bytes: new Uint8Array([1, 2, 3, 4]) },
-                price: 0n,
-                forSale: false,
-                generation: 0n,
-              },
-              {
-                id: 2n,
-                dna: 98765432109876543210n,
-                gender: 1,
-                owner: { bytes: new Uint8Array([1, 2, 3, 4]) },
-                price: 0n,
-                forSale: false,
-                generation: 0n,
-              },
-              {
-                id: 3n,
-                dna: 55555555555555555555n,
-                gender: 0,
-                owner: { bytes: new Uint8Array([1, 2, 3, 4]) },
-                price: 0n,
-                forSale: false,
-                generation: 1n,
-              },
-              {
-                id: 4n,
-                dna: 11111111111111111111n,
-                gender: 1,
-                owner: { bytes: new Uint8Array([1, 2, 3, 4]) },
-                price: 0n,
-                forSale: false,
-                generation: 1n,
-              },
-            ];
-          },
-          async createKitty(): Promise<void> {
-            console.log('Creating new kitty...');
-            // Simulate creation time
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-            console.log('Kitty created successfully');
-          },
-        };
-
-        setKittiesApi(mockAPI);
-        setContractExists(true);
+        if (connectedAPI) {
+          setKittiesApi(connectedAPI);
+          setContractExists(true);
+          console.log('Successfully connected to KittiesAPI');
+        } else {
+          throw new Error('Failed to connect to contract');
+        }
       } catch (err) {
-        console.error('Error initializing API:', err);
-        setError(err instanceof Error ? err : new Error('Failed to initialize API'));
+        console.error('Error connecting to contract:', err);
+        setError(err instanceof Error ? err : new Error('Failed to connect to contract'));
         setContractExists(false);
       } finally {
         setIsLoading(false);
@@ -184,6 +135,56 @@ export const KittiesReader: React.FC<KittiesReaderProps> = ({ contractAddress, p
     } catch (err) {
       console.error('Error creating kitty:', err);
       setError(err instanceof Error ? err : new Error('Failed to create kitty'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleTransferKitty = async (kittyId: bigint) => {
+    if (!kittiesApi) return;
+
+    const recipientAddress = window.prompt('Enter recipient address (hex format):');
+    if (!recipientAddress) return;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Convert hex string to bytes format
+      const recipientBytes = new Uint8Array(recipientAddress.match(/.{1,2}/g)?.map((byte) => parseInt(byte, 16)) || []);
+
+      await kittiesApi.transferKitty({
+        to: { bytes: recipientBytes },
+        kittyId: kittyId,
+      });
+
+      // Reload kitties after transfer
+      await loadMyKitties(false);
+    } catch (err) {
+      console.error('Error transferring kitty:', err);
+      setError(err instanceof Error ? err : new Error('Failed to transfer kitty'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSetPrice = async (kittyId: bigint, price: bigint) => {
+    if (!kittiesApi) return;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      await kittiesApi.setPrice({
+        kittyId: kittyId,
+        price: price,
+      });
+
+      // Reload kitties after price change
+      await loadMyKitties(false);
+    } catch (err) {
+      console.error('Error setting price:', err);
+      setError(err instanceof Error ? err : new Error('Failed to set price'));
     } finally {
       setIsLoading(false);
     }
@@ -290,7 +291,12 @@ export const KittiesReader: React.FC<KittiesReaderProps> = ({ contractAddress, p
                   border: '1px solid #e0e0e0',
                 }}
               >
-                {walletPublicKey.slice(0, 8)}...{walletPublicKey.slice(-8)}
+                {(() => {
+                  const hexString = Array.from(walletPublicKey.bytes)
+                    .map((byte) => byte.toString(16).padStart(2, '0'))
+                    .join('');
+                  return `${hexString.slice(0, 8)}...${hexString.slice(-8)}`;
+                })()}
               </span>
             )}
           </div>
@@ -371,7 +377,12 @@ export const KittiesReader: React.FC<KittiesReaderProps> = ({ contractAddress, p
           }}
         >
           {myKitties.map((kitty) => (
-            <KittyCard key={kitty.id.toString()} kitty={kitty} />
+            <KittyCard
+              key={kitty.id.toString()}
+              kitty={kitty}
+              onTransfer={handleTransferKitty}
+              onSetPrice={handleSetPrice}
+            />
           ))}
         </div>
       )}
@@ -409,7 +420,7 @@ export const KittiesReader: React.FC<KittiesReaderProps> = ({ contractAddress, p
 
 // Address input component for selecting a contract
 export const KittiesAddressInput: React.FC<{
-  onAddressSubmit: (_: ContractAddress) => void;
+  onAddressSubmit: (_address: ContractAddress) => void;
   initialAddress?: string;
 }> = ({ onAddressSubmit, initialAddress = '' }) => {
   const [addressInput, setAddressInput] = useState<string>(initialAddress);
@@ -623,7 +634,11 @@ export const KittiesReaderApplication: React.FC<{
         </button>
       </div>
 
-      <KittiesReader contractAddress={contractAddress} providers={providers} walletPublicKey={walletPublicKey} />
+      <KittiesReader
+        contractAddress={contractAddress}
+        providers={providers}
+        walletPublicKey={walletPublicKey ? { bytes: hexToUint8Array(walletPublicKey) } : undefined}
+      />
     </div>
   );
 };
