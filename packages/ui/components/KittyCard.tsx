@@ -56,7 +56,7 @@ export const KittyCard: React.FC<KittyCardProps> = ({ kitty, onTransfer, onSetPr
         setError('');
 
         // Use the actual CatGenerator to create responsive SVG from DNA
-        const generator = new CatGenerator({ responsive: true });
+        const generator = new CatGenerator();
         const dnaString = kitty.dna.toString();
 
         // Generate responsive cat using the proper configuration
@@ -95,7 +95,7 @@ export const KittyCard: React.FC<KittyCardProps> = ({ kitty, onTransfer, onSetPr
         transition: 'transform 0.2s, box-shadow 0.2s',
         cursor: 'pointer',
         width: '100%',
-        maxWidth: '350px',
+        maxWidth: '432px', // Increased to accommodate 400px image + 32px padding (16px * 2)
         margin: '0 auto',
       }}
       onMouseEnter={(e) => {
@@ -110,8 +110,8 @@ export const KittyCard: React.FC<KittyCardProps> = ({ kitty, onTransfer, onSetPr
       {/* Kitty Image */}
       <div
         style={{
-          width: '220px', // Fixed width to match the responsive SVG approach
-          height: '220px', // Fixed height - SVG will maintain aspect ratio inside
+          width: '400px', // Full width for 400px SVG - no scaling
+          height: '500px', // Full height for 500px SVG - no scaling
           backgroundColor: '#f8f9fa',
           borderRadius: '8px',
           display: 'flex',

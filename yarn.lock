@@ -2365,9 +2365,9 @@ crypto-browserify@^3.12.1:
     randombytes "^2.1.0"
     randomfill "^1.0.4"
 
-"cryptokitty-generator@git+https://riusricardo@github.com/riusricardo/kitties-generator":
+"cryptokitty-generator@git+https://riusricardo@github.com/riusricardo/kitties-generator#dev":
   version "1.0.0"
-  resolved "git+https://riusricardo@github.com/riusricardo/kitties-generator#d64d0c626bcc483432d4328080790cb293d7884b"
+  resolved "git+https://riusricardo@github.com/riusricardo/kitties-generator#e5c5b2111db372fbb4114acfe116a02cd076ddc3"
 
 csstype@^3.0.2, csstype@^3.1.3:
   version "3.1.3"
