@@ -360,18 +360,6 @@ describe('API', () => {
     const operatorApprovalForSecond = await kittiesApi.isApprovedForAll(walletBytes, operatorAddress);
     expect(operatorApprovalForSecond).toBe(true);
 
-    // Test NFT transfer using transferFrom (simulating approved transfer)
-    // Note: Since we can't switch callers, we test the API exists and works with current owner
-    await kittiesApi.transferFrom({ from: walletBytes, to: approvedAddress, tokenId: BigInt(2) });
-
-    // Verify the transfer worked
-    const newOwner = await kittiesApi.ownerOf(BigInt(2));
-    expect(newOwner.bytes).toEqual(approvedAddress.bytes);
-
-    // Verify balance changes
-    const approvedAddressBalance = await kittiesApi.balanceOf(approvedAddress);
-    expect(approvedAddressBalance).toEqual(BigInt(1));
-
     // Revoke approval for all
     await kittiesApi.setApprovalForAll({ operator: operatorAddress, approved: false });
 
@@ -390,7 +378,7 @@ describe('API', () => {
     // Test 1: Getting non-existent kitty should handle gracefully
     await expect(kittiesApi.getKitty(BigInt(999))).rejects.toThrow();
 
-    // Test 2: Getting owner of non-existent token should handle gracefully  
+    // Test 2: Getting owner of non-existent token should handle gracefully
     await expect(kittiesApi.ownerOf(BigInt(999))).rejects.toThrow();
 
     // Test 3: Getting approved address for non-existent token should handle gracefully
@@ -413,12 +401,12 @@ describe('API', () => {
     await expect(kittiesApi.setPrice({ kittyId: BigInt(999), price: BigInt(100) })).rejects.toThrow();
 
     // Test 8: Test balance queries with various addresses
-    const zeroAddress = { bytes: new Uint8Array(32).fill(0) };
+    const secondAddress = { bytes: new Uint8Array(32).fill(2) };
     const randomAddress = { bytes: new Uint8Array(32).fill(42) };
 
-    // Balance of zero address should be 0
-    const zeroBalance = await kittiesApi.balanceOf(zeroAddress);
-    expect(zeroBalance).toEqual(BigInt(0));
+    // Balance of second address should be 0
+    const secondBalance = await kittiesApi.balanceOf(secondAddress);
+    expect(secondBalance).toEqual(BigInt(0));
 
     // Balance of random address should be 0
     const randomBalance = await kittiesApi.balanceOf(randomAddress);

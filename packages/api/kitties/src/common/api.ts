@@ -47,6 +47,7 @@ import {
   type KittyData,
   type KittyListingData,
   type TransferKittyParams,
+  type TransferKittyFromParams,
   type SetPriceParams,
   type CreateBuyOfferParams,
   type ApproveOfferParams,
@@ -67,6 +68,7 @@ export interface DeployedKittiesAPI {
   // Kitty-specific operations
   readonly createKitty: () => Promise<void>;
   readonly transferKitty: (params: TransferKittyParams) => Promise<void>;
+  readonly transferKittyFrom: (params: TransferKittyFromParams) => Promise<void>;
   readonly setPrice: (params: SetPriceParams) => Promise<void>;
   readonly createBuyOffer: (params: CreateBuyOfferParams) => Promise<void>;
   readonly approveOffer: (params: ApproveOfferParams) => Promise<void>;
@@ -155,6 +157,18 @@ export class KittiesAPI implements DeployedKittiesAPI {
   async transferKitty(params: TransferKittyParams): Promise<void> {
     console.log(`Transferring kitty ${params.kittyId} to ${toHex(params.to.bytes)}...`);
     const finalizedTxData = await this.deployedContract.callTx.transferKitty(params.to, params.kittyId);
+    console.log(`Kitty transferred! Transaction added in block ${finalizedTxData.public.blockHeight}`);
+  }
+
+  async transferKittyFrom(params: TransferKittyFromParams): Promise<void> {
+    console.log(
+      `Transferring kitty ${params.kittyId} from ${toHex(params.from.bytes)} to ${toHex(params.to.bytes)}...`,
+    );
+    const finalizedTxData = await this.deployedContract.callTx.transferKittyFrom(
+      params.from,
+      params.to,
+      params.kittyId,
+    );
     console.log(`Kitty transferred! Transaction added in block ${finalizedTxData.public.blockHeight}`);
   }
 
@@ -621,6 +635,32 @@ export class KittiesAPI implements DeployedKittiesAPI {
   static async transferKitty(kittiesApi: KittiesAPI, params: TransferKittyParams): Promise<TransactionResponse> {
     console.log(`Transferring kitty ${params.kittyId} to ${toHex(params.to.bytes)}...`);
     const finalizedTxData = await kittiesApi.deployedContract.callTx.transferKitty(params.to, params.kittyId);
+
+    return {
+      txId: (finalizedTxData as any).public?.txId,
+      txHash: (finalizedTxData as any).public?.txHash,
+      blockHeight: (finalizedTxData as any).public?.blockHeight,
+    };
+  }
+
+  /**
+   * Transfer a kitty from one address to another
+   * @param kittiesApi - The KittiesAPI instance
+   * @param params - Transfer parameters
+   * @returns Transaction response with details
+   */
+  static async transferKittyFrom(
+    kittiesApi: KittiesAPI,
+    params: TransferKittyFromParams,
+  ): Promise<TransactionResponse> {
+    console.log(
+      `Transferring kitty ${params.kittyId} from ${toHex(params.from.bytes)} to ${toHex(params.to.bytes)}...`,
+    );
+    const finalizedTxData = await kittiesApi.deployedContract.callTx.transferKittyFrom(
+      params.from,
+      params.to,
+      params.kittyId,
+    );
 
     return {
       txId: (finalizedTxData as any).public?.txId,

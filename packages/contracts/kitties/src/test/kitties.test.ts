@@ -47,7 +47,7 @@ describe("Kitties Contract Tests", () => {
 
     // Check that the kitty exists and has proper attributes
     const kitty = simulator.getKitty(1n);
-    expect(kitty.generation).toBe(0n); // Changed to bigint
+    expect(kitty.generation).toBe(0n);
     expect(kitty.forSale).toBe(false);
     expect(kitty.price).toBe(0n);
 
@@ -340,9 +340,9 @@ describe("Kitties Contract Tests", () => {
     const parent2 = simulator.getKitty(2n);
     const offspring = simulator.getKitty(3n);
 
-    expect(parent1.generation).toBe(0n); // Changed to bigint
-    expect(parent2.generation).toBe(0n); // Changed to bigint
-    expect(offspring.generation).toBe(1n); // max(0, 0) + 1 = 1, Changed to bigint
+    expect(parent1.generation).toBe(0n);
+    expect(parent2.generation).toBe(0n);
+    expect(offspring.generation).toBe(1n); // max(0, 0) + 1 = 1
   });
 
   it("should handle multiple generations of breeding", () => {
@@ -439,7 +439,7 @@ describe("Kitties Contract Tests", () => {
     // Check that all kitties exist and have correct properties
     for (let i = 1; i <= 10; i++) {
       const kitty = simulator.getKitty(BigInt(i));
-      expect(kitty.generation).toBe(0n); // Changed to bigint
+      expect(kitty.generation).toBe(0n);
       expect(simulator.ownerOf(BigInt(i))).toBe(alice);
     }
   });

@@ -75,15 +75,16 @@ You can do one of the following:
   2. View my kitties
   3. View kitties for sale
   4. Transfer a kitty
-  5. Set kitty price
-  6. Create buy offer
-  7. Breed kitties
-  8. View kitty details
-  9. View contract stats
-  10. View all offers for a kitty
-  11. Approve offer
-  12. NFT Operations
-  13. Exit
+  5. Transfer a kitty from owner
+  6. Set kitty price
+  7. Create buy offer
+  8. Breed kitties
+  9. View kitty details
+  10. View contract stats
+  11. View all offers for a kitty
+  12. Approve offer
+  13. NFT Operations
+  14. Exit
 Which would you like to do? `;
 
 const join = async (providers: KittiesProviders, rli: Interface): Promise<KittiesAPI | null> => {
@@ -168,6 +169,25 @@ const transferKitty = async (kittiesApi: KittiesAPI, rli: Interface): Promise<vo
 
     logger.info(`Transferring kitty #${kittyId} to ${formatAddress(toAddress)}...`);
     await kittiesApi.transferKitty({ to: { bytes: toAddress }, kittyId });
+    logger.info('✅ Kitty transferred successfully!');
+  } catch (error) {
+    logger.error(`Failed to transfer kitty: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+
+const transferKittyFrom = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
+  try {
+    const kittyIdStr = await rli.question('Enter the kitty ID to transfer: ');
+    const kittyId = safeParseBigInt(kittyIdStr);
+
+    const fromAddressStr = await rli.question('Enter the owner address: ');
+    const fromAddress = safeParseAddress(fromAddressStr);
+
+    const toAddressStr = await rli.question('Enter the recipient address: ');
+    const toAddress = safeParseAddress(toAddressStr);
+
+    logger.info(`Transferring kitty #${kittyId} from ${formatAddress(fromAddress)} to ${formatAddress(toAddress)}...`);
+    await kittiesApi.transferKittyFrom({ from: { bytes: fromAddress }, to: { bytes: toAddress }, kittyId });
     logger.info('✅ Kitty transferred successfully!');
   } catch (error) {
     logger.error(`Failed to transfer kitty: ${error instanceof Error ? error.message : String(error)}`);
@@ -309,30 +329,33 @@ const mainLoop = async (providers: KittiesProviders, rli: Interface): Promise<vo
         await transferKitty(kittiesApi, rli);
         break;
       case '5':
-        await setKittyPrice(kittiesApi, rli);
+        await transferKittyFrom(kittiesApi, rli);
         break;
       case '6':
-        await createBuyOffer(kittiesApi, rli);
+        await setKittyPrice(kittiesApi, rli);
         break;
       case '7':
-        await breedKitties(kittiesApi, rli);
+        await createBuyOffer(kittiesApi, rli);
         break;
       case '8':
-        await viewKittyDetails(kittiesApi, rli);
+        await breedKitties(kittiesApi, rli);
         break;
       case '9':
-        await viewContractStats(kittiesApi);
+        await viewKittyDetails(kittiesApi, rli);
         break;
       case '10':
-        await viewOffers(kittiesApi, rli);
+        await viewContractStats(kittiesApi);
         break;
       case '11':
-        await approveOffer(kittiesApi, rli);
+        await viewOffers(kittiesApi, rli);
         break;
       case '12':
-        await nftOperations(kittiesApi, rli);
+        await approveOffer(kittiesApi, rli);
         break;
       case '13':
+        await nftOperations(kittiesApi, rli);
+        break;
+      case '14':
         logger.info('Exiting...');
         return;
       default:

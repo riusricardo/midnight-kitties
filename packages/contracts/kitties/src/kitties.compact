@@ -150,7 +150,7 @@ export circuit createKitty(): [] {
 
 // Transfers a kitty to another account and resets its sale status.
 export circuit transferKitty(to: ZswapCoinPublicKey, kittyId: Uint<64>): [] {
-  const sender = ownPublicKey();
+  // const sender = ownPublicKey();
 
   // Ensure the kitty exists.
   assert(tokenExists(disclose(kittyId)), "Kitty does not exist");
@@ -170,8 +170,42 @@ export circuit transferKitty(to: ZswapCoinPublicKey, kittyId: Uint<64>): [] {
 
   kitties.insert(disclose(kittyId), disclose(updatedKitty));
 
+  // Transfering token resets offers if the kitty was but on sale before.
+  if (buyOffers.member(disclose(kittyId))) {
+    // Note: In a real implementation, currency reimbursment would occur here.
+    // The currency transfer would be the bidPrice from the offer.
+    // For now, only clear offers.
+
+    // Empty the kitty offers.
+    buyOffers.remove(disclose(kittyId));
+    
+  }
+
   // Transfer the NFT using the imported NFT module.
   transfer(to, kittyId);
+}
+
+// Transfers a kitty to another account and resets its sale status.
+export circuit transferKittyFrom(from: ZswapCoinPublicKey, to: ZswapCoinPublicKey, kittyId: Uint<64>): [] {
+  // const sender = ownPublicKey();
+
+  // Ensure the kitty exists.
+  assert(tokenExists(disclose(kittyId)), "Kitty does not exist");
+
+  // Retrieve the kitty data.
+  const kitty = kitties.lookup(disclose(kittyId));
+
+  // Update the kitty's owner and reset sale status.
+  const updatedKitty = Kitty {
+    dna: kitty.dna,
+    gender: kitty.gender,
+    owner: to,
+    price: 0,
+    forSale: false,
+    generation: kitty.generation
+  };
+
+  kitties.insert(disclose(kittyId), disclose(updatedKitty));
 
   // Transfering token resets offers if the kitty was but on sale before.
   if (buyOffers.member(disclose(kittyId))) {
@@ -181,6 +215,9 @@ export circuit transferKitty(to: ZswapCoinPublicKey, kittyId: Uint<64>): [] {
 
     // Empty the kitty offers.
     buyOffers.remove(disclose(kittyId));
+
+  // Transfer the NFT using the imported NFT module.
+  transferFrom(from, to, kittyId);
     
   }
 }

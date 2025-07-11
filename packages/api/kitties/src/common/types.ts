@@ -70,6 +70,12 @@ export interface TransferKittyParams {
   kittyId: bigint;
 }
 
+export interface TransferKittyFromParams {
+  from: { bytes: Uint8Array };
+  to: { bytes: Uint8Array };
+  kittyId: bigint;
+}
+
 export interface SetPriceParams {
   kittyId: bigint;
   price: bigint;
