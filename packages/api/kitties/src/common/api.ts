@@ -104,11 +104,17 @@ export interface TransactionResponse {
   readonly blockHeight?: bigint | number;
 }
 
+// Utility logger fallback
+const defaultLogger = { info: () => {}, error: () => {} };
+
 // Main KittiesAPI class
 export class KittiesAPI implements DeployedKittiesAPI {
+  private logger: { info: (...args: any[]) => void; error: (...args: any[]) => void };
+
   private constructor(
     public readonly deployedContract: DeployedKittiesContract,
     public readonly providers: KittiesProviders,
+    logger?: { info: (...args: any[]) => void; error: (...args: any[]) => void }
   ) {
     this.deployedContractAddress = deployedContract.deployTxData.public.contractAddress;
     this.state$ = this.providers.publicDataProvider
@@ -124,6 +130,7 @@ export class KittiesAPI implements DeployedKittiesAPI {
           delay: 500, // retry websocket connection if it fails
         }),
       );
+    this.logger = logger || defaultLogger;
   }
 
   readonly deployedContractAddress: ContractAddress;
@@ -139,19 +146,19 @@ export class KittiesAPI implements DeployedKittiesAPI {
   }
 
   async createKitty(): Promise<void> {
-    console.log('Creating a new kitty...');
+    this.logger.info('Creating a new kitty...');
     const finalizedTxData = await this.deployedContract.callTx.createKitty();
-    console.log(`Kitty created! Transaction added in block ${finalizedTxData.public.blockHeight}`);
+    this.logger.info(`Kitty created! Transaction added in block ${finalizedTxData.public.blockHeight}`);
   }
 
   async transferKitty(params: TransferKittyParams): Promise<void> {
-    console.log(`Transferring kitty ${params.kittyId} to ${toHex(params.to.bytes)}...`);
+    this.logger.info(`Transferring kitty ${params.kittyId} to ${toHex(params.to.bytes)}...`);
     const finalizedTxData = await this.deployedContract.callTx.transferKitty(params.to, params.kittyId);
-    console.log(`Kitty transferred! Transaction added in block ${finalizedTxData.public.blockHeight}`);
+    this.logger.info(`Kitty transferred! Transaction added in block ${finalizedTxData.public.blockHeight}`);
   }
 
   async transferKittyFrom(params: TransferKittyFromParams): Promise<void> {
-    console.log(
+    this.logger.info(
       `Transferring kitty ${params.kittyId} from ${toHex(params.from.bytes)} to ${toHex(params.to.bytes)}...`,
     );
     const finalizedTxData = await this.deployedContract.callTx.transferKittyFrom(
@@ -159,36 +166,36 @@ export class KittiesAPI implements DeployedKittiesAPI {
       params.to,
       params.kittyId,
     );
-    console.log(`Kitty transferred! Transaction added in block ${finalizedTxData.public.blockHeight}`);
+    this.logger.info(`Kitty transferred! Transaction added in block ${finalizedTxData.public.blockHeight}`);
   }
 
   async setPrice(params: SetPriceParams): Promise<void> {
-    console.log(`Setting price for kitty ${params.kittyId} to ${params.price}...`);
+    this.logger.info(`Setting price for kitty ${params.kittyId} to ${params.price}...`);
     const finalizedTxData = await this.deployedContract.callTx.setPrice(params.kittyId, params.price);
-    console.log(`Price set! Transaction added in block ${finalizedTxData.public.blockHeight}`);
+    this.logger.info(`Price set! Transaction added in block ${finalizedTxData.public.blockHeight}`);
   }
 
   async createBuyOffer(params: CreateBuyOfferParams): Promise<void> {
-    console.log(`Creating buy offer for kitty ${params.kittyId} with bid price ${params.bidPrice}...`);
+    this.logger.info(`Creating buy offer for kitty ${params.kittyId} with bid price ${params.bidPrice}...`);
     const finalizedTxData = await this.deployedContract.callTx.createBuyOffer(params.kittyId, params.bidPrice);
-    console.log(`Buy offer created! Transaction added in block ${finalizedTxData.public.blockHeight}`);
+    this.logger.info(`Buy offer created! Transaction added in block ${finalizedTxData.public.blockHeight}`);
   }
 
   async approveOffer(params: ApproveOfferParams): Promise<void> {
-    console.log(`Approving offer for kitty ${params.kittyId} from buyer...`);
+    this.logger.info(`Approving offer for kitty ${params.kittyId} from buyer...`);
     const finalizedTxData = await this.deployedContract.callTx.approveOffer(params.kittyId, params.buyer);
-    console.log(`Offer approved! Transaction added in block ${finalizedTxData.public.blockHeight}`);
+    this.logger.info(`Offer approved! Transaction added in block ${finalizedTxData.public.blockHeight}`);
   }
 
   async getOffer(params: GetOfferParams): Promise<Offer> {
-    console.log(`Getting offer for kitty ${params.kittyId} from ${toHex(params.from.bytes)}...`);
+    this.logger.info(`Getting offer for kitty ${params.kittyId} from ${toHex(params.from.bytes)}...`);
     const response = await this.deployedContract.callTx.getOffer(params.kittyId, params.from);
     const offer = (response as any).private.result;
     return offer;
   }
 
   async getOffersForKitty(kittyId: bigint): Promise<Offer[]> {
-    console.log(`Getting all offers for kitty ${kittyId}...`);
+    this.logger.info(`Getting all offers for kitty ${kittyId}...`);
     const contractState = await this.providers.publicDataProvider.queryContractState(this.deployedContractAddress);
     if (!contractState) {
       return [];
@@ -206,18 +213,18 @@ export class KittiesAPI implements DeployedKittiesAPI {
       }
     }
 
-    console.log(`Found ${offers.length} offers for kitty ${kittyId}`);
+    this.logger.info(`Found ${offers.length} offers for kitty ${kittyId}`);
     return offers;
   }
 
   async breedKitty(params: BreedKittyParams): Promise<void> {
-    console.log(`Breeding kitties ${params.kittyId1} and ${params.kittyId2}...`);
+    this.logger.info(`Breeding kitties ${params.kittyId1} and ${params.kittyId2}...`);
     const finalizedTxData = await this.deployedContract.callTx.breedKitty(params.kittyId1, params.kittyId2);
-    console.log(`Kitties bred! Transaction added in block ${finalizedTxData.public.blockHeight}`);
+    this.logger.info(`Kitties bred! Transaction added in block ${finalizedTxData.public.blockHeight}`);
   }
 
   async getKitty(kittyId: bigint): Promise<KittyData> {
-    console.log(`Getting kitty ${kittyId}...`);
+    this.logger.info(`Getting kitty ${kittyId}...`);
     // Use the contract call directly for read operations
     const response = await this.deployedContract.callTx.getKitty(kittyId);
     // Extract the result from the transaction response
@@ -234,16 +241,16 @@ export class KittiesAPI implements DeployedKittiesAPI {
   }
 
   async getAllKittiesCount(): Promise<bigint> {
-    console.log('Getting total kitties count...');
+    this.logger.info('Getting total kitties count...');
     // Use the contract call directly for read operations
     const response = await this.deployedContract.callTx.getAllKittiesCount();
     const count = (response as any).private.result;
-    console.log(`Total kitties: ${count}`);
+    this.logger.info(`Total kitties: ${count}`);
     return count;
   }
 
   async getKittiesForSale(): Promise<KittyListingData[]> {
-    console.log('Getting kitties for sale...');
+    this.logger.info('Getting kitties for sale...');
     const contractState = await this.providers.publicDataProvider.queryContractState(this.deployedContractAddress);
     if (!contractState) {
       return [];
@@ -269,12 +276,12 @@ export class KittiesAPI implements DeployedKittiesAPI {
       }
     }
 
-    console.log(`Found ${forSaleKitties.length} kitties for sale`);
+    this.logger.info(`Found ${forSaleKitties.length} kitties for sale`);
     return forSaleKitties;
   }
 
   async getUserKitties(owner: { bytes: Uint8Array }): Promise<KittyData[]> {
-    console.log(`Getting kitties for owner ${toHex(owner.bytes)}...`);
+    this.logger.info(`Getting kitties for owner ${toHex(owner.bytes)}...`);
     const contractState = await this.providers.publicDataProvider.queryContractState(this.deployedContractAddress);
     if (!contractState) {
       return [];
@@ -297,7 +304,7 @@ export class KittiesAPI implements DeployedKittiesAPI {
       }
     }
 
-    console.log(`Found ${userKitties.length} kitties for user`);
+    this.logger.info(`Found ${userKitties.length} kitties for user`);
     return userKitties;
   }
 
@@ -306,42 +313,42 @@ export class KittiesAPI implements DeployedKittiesAPI {
   //  =====================================
 
   async balanceOf(owner: { bytes: Uint8Array }): Promise<bigint> {
-    console.log(`Getting balance for owner ${toHex(owner.bytes)}...`);
+    this.logger.info(`Getting balance for owner ${toHex(owner.bytes)}...`);
     const response = await this.deployedContract.callTx.balanceOf(owner);
     const balance = (response as any).private.result;
     return balance;
   }
 
   async ownerOf(tokenId: bigint): Promise<{ bytes: Uint8Array }> {
-    console.log(`Getting owner of token ${tokenId}...`);
+    this.logger.info(`Getting owner of token ${tokenId}...`);
     const response = await this.deployedContract.callTx.ownerOf(tokenId);
     const owner = (response as any).private.result;
     return owner;
   }
 
   async approve(params: NFTApprovalParams): Promise<void> {
-    console.log(`Approving ${toHex(params.to.bytes)} for token ${params.tokenId}...`);
+    this.logger.info(`Approving ${toHex(params.to.bytes)} for token ${params.tokenId}...`);
     const finalizedTxData = await this.deployedContract.callTx.approve(params.to, params.tokenId);
-    console.log(`Approval granted! Transaction added in block ${finalizedTxData.public.blockHeight}`);
+    this.logger.info(`Approval granted! Transaction added in block ${finalizedTxData.public.blockHeight}`);
   }
 
   async getApproved(tokenId: bigint): Promise<{ bytes: Uint8Array }> {
-    console.log(`Getting approved address for token ${tokenId}...`);
+    this.logger.info(`Getting approved address for token ${tokenId}...`);
     const response = await this.deployedContract.callTx.getApproved(tokenId);
     const approved = (response as any).private.result;
     return approved;
   }
 
   async setApprovalForAll(params: NFTSetApprovalForAllParams): Promise<void> {
-    console.log(
+    this.logger.info(
       `Setting approval for all tokens - operator: ${toHex(params.operator.bytes)}, approved: ${params.approved}...`,
     );
     const finalizedTxData = await this.deployedContract.callTx.setApprovalForAll(params.operator, params.approved);
-    console.log(`Approval for all set! Transaction added in block ${finalizedTxData.public.blockHeight}`);
+    this.logger.info(`Approval for all set! Transaction added in block ${finalizedTxData.public.blockHeight}`);
   }
 
   async isApprovedForAll(owner: { bytes: Uint8Array }, operator: { bytes: Uint8Array }): Promise<boolean> {
-    console.log(`Checking if ${toHex(operator.bytes)} is approved for all tokens of ${toHex(owner.bytes)}...`);
+    this.logger.info(`Checking if ${toHex(operator.bytes)} is approved for all tokens of ${toHex(owner.bytes)}...`);
     const response = await this.deployedContract.callTx.isApprovedForAll(owner, operator);
     const isApproved = (response as any).private.result;
     return isApproved;
