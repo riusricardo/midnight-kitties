@@ -10,8 +10,13 @@
     "packages/contracts/*"
   ],
   "scripts": {
-    "compact": "turbo run compact",
+    "compact": "turbo run compact --filter=@midnight-ntwrk/kitties-contract",
     "build": "turbo run build",
+    "build:contracts": "turbo run build --filter=@midnight-ntwrk/kitties-contract",
+    "build:api": "turbo run build --filter=@repo/kitties-api",
+    "build:cli": "turbo run build --filter=@midnight-ntwrk/kitties-cli",
+    "build:ui": "turbo run build --filter=@repo/ui",
+    "build:app": "turbo run build --filter=@repo/web-app",
     "start": "turbo run start --filter=@repo/web-app",
     "kitties-cli-remote": "yarn --cwd packages/cli/kitties run start-testnet-remote",
     "kitties-cli-remote-ps": "yarn --cwd packages/cli/kitties run start-testnet-remote-ps",

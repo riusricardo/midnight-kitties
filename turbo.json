@@ -22,7 +22,7 @@
       "outputs": ["dist/**"]
     },
     "lint": {
-      "dependsOn": ["compact", "^build", "typecheck"],
+      "dependsOn": ["compact", "typecheck"],
       "inputs": ["src/**/*.ts", "src/**/*.mts", "src/**/*.tsx", ".eslintrc.cjs"]
     },
     "test": {
@@ -31,20 +31,15 @@
       "outputs": ["reports/**"]
     },
     "check": {
-      "dependsOn": ["build", "lint", "test"]
+      "dependsOn": ["format", "lint", "typecheck"]
     },
     "test-api": {
       "cache": false,
       "persistent": true
     },
     "start": {
-      "cache": false,
       "persistent": true,
       "dependsOn": ["build"]
-    },
-    "dev": {
-      "cache": false,
-      "persistent": true
     }
   }
 }

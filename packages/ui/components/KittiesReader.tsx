@@ -318,7 +318,7 @@ export const KittiesReader: React.FC<KittiesReaderProps> = ({ contractAddress, p
             boxShadow: isLoading ? 'none' : '0 2px 4px rgba(46, 125, 50, 0.3)',
           }}
         >
-          {isLoading ? 'Creating...' : '+ Create New Kitty'}
+          {isLoading ? 'Executing...' : '+ Create New Kitty'}
         </button>
       </div>
 
@@ -364,7 +364,7 @@ export const KittiesReader: React.FC<KittiesReaderProps> = ({ contractAddress, p
               boxShadow: isLoading ? 'none' : '0 4px 8px rgba(46, 125, 50, 0.3)',
             }}
           >
-            {isLoading ? 'Creating...' : 'Create My First Kitty'}
+            {isLoading ? 'Executing...' : 'Create My First Kitty'}
           </button>
         </div>
       ) : (
