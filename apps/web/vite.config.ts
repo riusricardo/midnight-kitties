@@ -27,7 +27,6 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { viteCommonjs } from '@originjs/vite-plugin-commonjs';
 import wasm from 'vite-plugin-wasm';
-import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import inject from '@rollup/plugin-inject';
 import stdLibBrowser from 'node-stdlib-browser';
 
@@ -45,7 +44,7 @@ export default defineConfig({
         inject({
           util: ['util', '*'],
           Buffer: ['buffer', 'Buffer'],
-          process: 'process',
+          process: ['process/browser', 'default'],
         }),
       ],
       external: [
@@ -62,17 +61,6 @@ export default defineConfig({
       include: ['@repo/kitties-api/**'],
     }),
     wasm(),
-    nodePolyfills({
-      // Whether to polyfill specific Node.js globals
-      globals: {
-        Buffer: true,
-        global: true,
-        process: true,
-      },
-      // Whether to polyfill Node.js builtins
-      protocolImports: true,
-      include: ['util', 'buffer', 'events', 'path', 'querystring', 'url', 'fs', 'crypto', 'os'],
-    }),
   ],
   optimizeDeps: {
     esbuildOptions: {
@@ -93,6 +81,9 @@ export default defineConfig({
       'node:fs': stdLibBrowser.fs,
       'node:crypto': stdLibBrowser.crypto,
       'node:path': stdLibBrowser.path,
+      process: stdLibBrowser.process,
+      'process/browser': stdLibBrowser.process,
+      'process/browser/browser': stdLibBrowser.process,
 
       // Environment Abstraction Layer Aliases
       //

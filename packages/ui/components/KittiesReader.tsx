@@ -23,240 +23,114 @@
  * damages or losses arising from the use of this software.
  */
 
-/* global console */
+/* global console, window */
 import React, { useState, useEffect } from 'react';
 import { type ContractAddress } from '@midnight-ntwrk/compact-runtime';
-import { KittiesAPI, type KittiesState, type KittiesProviders } from '@repo/kitties-api/common-api';
 import { CircularProgress } from '@mui/material';
-import { AgeVerificationForm, type CredentialSubjectData } from './AgeVerificationForm';
+import { KittyCard, type KittyData } from './KittyCard';
+import { parseAddress } from '@repo/kitties-api';
 
-interface KittiesReaderProviderProps {
+// Simple types for the API - matching actual MidnightProviders structure
+interface KittiesProviders {
+  publicDataProvider: any;
+  privateStateProvider: any;
+  // Note: prover is not available in the actual MidnightProviders type
+}
+
+interface KittiesAPI {
+  getMyKitties(from: { bytes: Uint8Array }): Promise<KittyData[]>;
+  createKitty(): Promise<void>;
+  transferKitty(params: { to: { bytes: Uint8Array }; kittyId: bigint }): Promise<void>;
+  setPrice(params: { kittyId: bigint; price: bigint }): Promise<void>;
+}
+
+interface KittiesReaderProps {
   contractAddress: ContractAddress;
   providers: KittiesProviders;
-  children: React.ReactNode;
+  walletPublicKey?: string;
 }
 
-interface KittiesReaderContextType {
-  kittiesState: KittiesState | null;
-  kittiesValue: bigint | null;
-  isLoading: boolean;
-  error: Error | null;
-  contractExists: boolean;
-  refreshValue: () => Promise<void>;
-  hasRealtimeUpdates: boolean;
-  incrementKitties: () => Promise<void>;
-  showAgeVerification: boolean;
-  isVerificationLoading: boolean;
-  updateCredentialSubject: (credentialData: any) => Promise<void>;
-  closeAgeVerification: () => void;
-}
-
-const KittiesReaderContext = React.createContext<KittiesReaderContextType>({
-  kittiesState: null,
-  kittiesValue: null,
-  isLoading: false,
-  error: null,
-  contractExists: false,
-  refreshValue: async () => {},
-  hasRealtimeUpdates: false,
-  incrementKitties: async () => {},
-  showAgeVerification: false,
-  isVerificationLoading: false,
-  updateCredentialSubject: async () => {},
-  closeAgeVerification: () => {},
-});
-
-export const useKittiesReader = () => {
-  const context = React.useContext(KittiesReaderContext);
-  if (context === undefined) {
-    throw new Error('useKittiesReader must be used within a KittiesReaderProvider');
-  }
-  return context;
-};
-
-export const KittiesReaderProvider: React.FC<KittiesReaderProviderProps> = ({
-  contractAddress,
-  providers,
-  children,
-}) => {
+export const KittiesReader: React.FC<KittiesReaderProps> = ({ contractAddress, providers, walletPublicKey }) => {
   const [kittiesApi, setKittiesApi] = useState<KittiesAPI | null>(null);
-  const [kittiesState, setKittiesState] = useState<KittiesState | null>(null);
-  const [kittiesValue, setKittiesValue] = useState<bigint | null>(null);
+  const [myKitties, setMyKitties] = useState<KittyData[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
   const [contractExists, setContractExists] = useState<boolean>(false);
-  const [hasRealtimeUpdates, setHasRealtimeUpdates] = useState<boolean>(false);
-  const [isUserVerified, setIsUserVerified] = useState<boolean>(false);
-  const [isVerificationLoading, setIsVerificationLoading] = useState<boolean>(false);
-  const [showAgeVerification, setShowAgeVerification] = useState<boolean>(false);
-  const [verifiedContracts, setVerifiedContracts] = useState<Set<string>>(new Set());
 
-  // Helper function to check if current contract is verified
-  const isContractVerified = (address: string): boolean => {
-    return verifiedContracts.has(address);
-  };
-
-  const closeAgeVerification = () => {
-    setShowAgeVerification(false);
-  };
-
-  const updateCredentialSubject = async (credentialData: any) => {
-    if (!kittiesApi) {
-      throw new Error('Kitties API not initialized');
-    }
-
-    try {
-      setIsVerificationLoading(true);
-      setError(null);
-
-      await (kittiesApi as any).updateCredentialSubject(credentialData);
-
-      // Mark this contract as verified
-      setVerifiedContracts((prev) => new Set([...prev, contractAddress]));
-      setShowAgeVerification(false);
-
-      console.log('Successfully updated credential subject for contract:', contractAddress);
-    } catch (err) {
-      console.error('Error updating credential subject:', err);
-      setError(err instanceof Error ? err : new Error('Failed to update credential information'));
-      throw err;
-    } finally {
-      setIsVerificationLoading(false);
-    }
-  };
-
-  // Wrapper function to safely call getKittiesState
-  const getKittiesValueSafely = async (): Promise<bigint> => {
-    if (!contractAddress) {
-      throw new Error('Contract address is required');
-    }
-    const kittiesValue = await KittiesAPI.getKittiesState(providers, contractAddress);
-    if (kittiesValue === null) {
-      throw new Error('Kitties value is null - contract may not exist or be incompatible');
-    }
-    return kittiesValue;
-  };
-
-  const loadKittiesValue = async () => {
-    // Don't proceed if providers are not ready
-    if (!providers) {
-      setError(new Error('Providers not initialized'));
-      return;
-    }
-
-    // Don't proceed if contract address is not set
-    if (!contractAddress) {
-      setError(new Error('Contract address not provided'));
-      return;
-    }
-
-    try {
-      console.log('🔍 KittiesReader: Checking providers...');
-      console.log('providers object:', providers);
-      console.log('providers type:', typeof providers);
-      setIsLoading(true);
-      setError(null);
-
-      // First check if the contract exists
-      const exists = await KittiesAPI.contractExists(providers, contractAddress);
-      setContractExists(exists);
-
-      if (!exists) {
-        throw new Error(`Contract at address ${contractAddress} does not exist or is not a valid kitties contract`);
-      }
-
-      try {
-        // Try to connect to the kitties contract for real-time updates
-        const api = await KittiesAPI.connect(providers, contractAddress);
-        setKittiesApi(api);
-        setHasRealtimeUpdates(true);
-
-        // Get initial kitties value
-        const value = await api.getKittiesValue();
-        setKittiesValue(value);
-
-        // Subscribe to state changes for real-time updates
-        const subscription = api.state$.subscribe({
-          next: (state: KittiesState) => {
-            setKittiesState(state);
-            setKittiesValue(state.kittiesValue);
-          },
-          error: (err: Error) => {
-            setError(err);
-          },
-        });
-
-        setIsLoading(false);
-
-        return () => {
-          subscription.unsubscribe();
-        };
-      } catch (subscriptionError) {
-        // Use console for debugging - logging fallback to direct read
-        console.warn('Failed to subscribe to contract, trying direct read approach:', subscriptionError);
-
-        // Fallback: Try to read the kitties value directly from the public state
-        try {
-          const value: bigint = await getKittiesValueSafely();
-          setKittiesValue(value);
-          setKittiesApi(null); // No API instance for real-time updates
-          setHasRealtimeUpdates(false);
-          setIsLoading(false);
-
-          // Note: No real-time updates available in this mode
-          console.log(
-            'Successfully read kitties value directly from public state. Real-time updates are not available.',
-          );
-        } catch (directError) {
-          throw new Error(
-            `Unable to read from this contract. It may be incompatible or corrupted. Subscription error: ${subscriptionError instanceof Error ? subscriptionError.message : String(subscriptionError)}. Direct read error: ${directError instanceof Error ? directError.message : String(directError)}`,
-          );
-        }
-      }
-    } catch (err) {
-      setIsLoading(false);
-      setError(err instanceof Error ? err : new Error('Unknown error loading kitties'));
-      setContractExists(false);
-    }
-  };
-
+  // Initialize the API connection
   useEffect(() => {
+    const initializeAPI = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        // For now, we'll create a mock API implementation
+        // TODO: Replace with actual KittiesAPI when imports are fixed
+        const mockAPI: KittiesAPI = {
+          async getMyKitties(from: { bytes: Uint8Array }): Promise<KittyData[]> {
+            // Return mock data for now - ignoring the 'from' parameter in mock
+            console.log('Mock getMyKitties called with:', from);
+            return [
+              {
+                id: 1n,
+                dna: 12345678901234567890n,
+                gender: 0,
+                owner: { bytes: new Uint8Array([1, 2, 3, 4]) },
+                price: 0n,
+                forSale: false,
+                generation: 0n,
+              },
+              {
+                id: 2n,
+                dna: 98765432109876543210n,
+                gender: 1,
+                owner: { bytes: new Uint8Array([1, 2, 3, 4]) },
+                price: 100n,
+                forSale: true,
+                generation: 0n,
+              },
+            ];
+          },
+          async createKitty(): Promise<void> {
+            console.log('Creating kitty...');
+            // Mock implementation
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          },
+          async transferKitty(): Promise<void> {
+            console.log('Transferring kitty...');
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          },
+          async setPrice(): Promise<void> {
+            console.log('Setting price...');
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          },
+        };
+
+        setKittiesApi(mockAPI);
+        setContractExists(true);
+      } catch (err) {
+        console.error('Error initializing API:', err);
+        setError(err instanceof Error ? err : new Error('Failed to initialize API'));
+        setContractExists(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     if (providers && contractAddress) {
-      void loadKittiesValue();
+      void initializeAPI();
     }
   }, [contractAddress, providers]);
 
-  const refreshValue = async () => {
-    if (!providers) {
-      setError(new Error('Providers not initialized'));
-      return;
-    }
-
-    if (!contractAddress) {
-      setError(new Error('Contract address not provided'));
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      const value = await getKittiesValueSafely();
-      setKittiesValue(value);
-      setIsLoading(false);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to refresh kitties value'));
-      setIsLoading(false);
-    }
-  };
-
-  const incrementKitties = async () => {
+  // Load user's kitties
+  const loadMyKitties = async () => {
     if (!kittiesApi) {
-      setError(new Error('Kitties API not initialized'));
+      setError(new Error('API not initialized'));
       return;
     }
 
-    // Check if user is verified for this specific contract
-    if (!isContractVerified(contractAddress)) {
-      setShowAgeVerification(true);
+    if (!walletPublicKey) {
+      setError(new Error('Wallet not connected'));
       return;
     }
 
@@ -264,121 +138,113 @@ export const KittiesReaderProvider: React.FC<KittiesReaderProviderProps> = ({
       setIsLoading(true);
       setError(null);
 
-      console.log('🔍 KittiesReader: Starting increment operation...');
-      console.log('🔍 KittiesReader: Contract address:', contractAddress);
-      console.log('🔍 KittiesReader: Current kitties value:', kittiesValue);
-      console.log('🔍 KittiesReader: Providers available:', !!providers);
+      // Convert wallet public key to bytes format
+      const walletBytes = parseAddress(walletPublicKey);
+      const walletAddress = { bytes: walletBytes };
 
-      // Check if providers are still valid
-      if (!providers || !providers.privateStateProvider || !providers.publicDataProvider) {
-        throw new Error('Providers not properly initialized');
-      }
-
-      console.log('✅ KittiesReader: Providers validation passed');
-
-      await kittiesApi.increment();
-      console.log('✅ KittiesReader: Increment operation completed successfully');
-
-      // The state$ observable will update the UI
+      const kitties = await kittiesApi.getMyKitties(walletAddress);
+      setMyKitties(kitties);
     } catch (err) {
-      console.error('❌ KittiesReader: Increment operation failed:', err);
-
-      // Provide more specific error messages based on the error type
-      let errorMessage = 'Failed to increment kitties';
-      if (err instanceof Error) {
-        if (err.message.includes('invalid string length')) {
-          errorMessage =
-            'Transaction failed due to validation error. This may be due to incomplete provider setup or network issues.';
-        } else if (err.message.includes('verifier key')) {
-          errorMessage =
-            'Contract verification failed. The contract version may be incompatible with the current network.';
-        } else if (err.message.includes('proof')) {
-          errorMessage = 'Proof generation failed. Please check your connection to the proof server.';
-        } else {
-          errorMessage = err.message;
-        }
-      }
-
-      setError(new Error(errorMessage));
+      console.error('Error loading my kitties:', err);
+      setError(err instanceof Error ? err : new Error('Failed to load kitties'));
     } finally {
       setIsLoading(false);
     }
   };
 
-  return (
-    <KittiesReaderContext.Provider
-      value={{
-        kittiesState,
-        kittiesValue,
-        isLoading,
-        error,
-        contractExists,
-        refreshValue,
-        hasRealtimeUpdates,
-        incrementKitties,
-        showAgeVerification,
-        isVerificationLoading,
-        updateCredentialSubject,
-        closeAgeVerification,
-      }}
-    >
-      {children}
-    </KittiesReaderContext.Provider>
-  );
-};
+  // Load kitties when API is ready
+  useEffect(() => {
+    if (kittiesApi && contractExists && walletPublicKey) {
+      void loadMyKitties();
+    }
+  }, [kittiesApi, contractExists, walletPublicKey]);
 
-export const KittiesReaderDisplay: React.FC<{
-  walletPublicKey?: string;
-}> = ({ walletPublicKey }) => {
-  const {
-    kittiesValue,
-    isLoading,
-    error,
-    contractExists,
-    refreshValue,
-    incrementKitties,
-    showAgeVerification,
-    isVerificationLoading,
-    updateCredentialSubject,
-    closeAgeVerification,
-  } = useKittiesReader();
+  const handleCreateKitty = async () => {
+    if (!kittiesApi) return;
 
-  const handleAgeVerification = async (credentialData: CredentialSubjectData) => {
-    await updateCredentialSubject(credentialData);
+    try {
+      setIsLoading(true);
+      await kittiesApi.createKitty();
+      // Reload kitties after creation
+      await loadMyKitties();
+    } catch (err) {
+      console.error('Error creating kitty:', err);
+      setError(err instanceof Error ? err : new Error('Failed to create kitty'));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  if (isLoading) {
+  const handleTransferKitty = async (kittyId: bigint) => {
+    const toAddress = window.prompt('Enter recipient address (hex):');
+    if (!toAddress || !kittiesApi) return;
+
+    try {
+      setIsLoading(true);
+      // Convert hex string to bytes
+      const toBytes = new Uint8Array(toAddress.match(/.{1,2}/g)?.map((byte) => parseInt(byte, 16)) || []);
+      await kittiesApi.transferKitty({ to: { bytes: toBytes }, kittyId });
+      // Reload kitties after transfer
+      await loadMyKitties();
+    } catch (err) {
+      console.error('Error transferring kitty:', err);
+      setError(err instanceof Error ? err : new Error('Failed to transfer kitty'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSetPrice = async (kittyId: bigint, price: bigint) => {
+    if (!kittiesApi) return;
+
+    try {
+      setIsLoading(true);
+      await kittiesApi.setPrice({ kittyId, price });
+      // Reload kitties after price change
+      await loadMyKitties();
+    } catch (err) {
+      console.error('Error setting price:', err);
+      setError(err instanceof Error ? err : new Error('Failed to set price'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Loading state
+  if (isLoading && !kittiesApi) {
     return (
-      <div className="kitties-reader-container">
-        <div className="loading-indicator" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <CircularProgress size={18} />
-          Loading kitties value...
-        </div>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: '40px',
+          flexDirection: 'column',
+          gap: '16px',
+        }}
+      >
+        <CircularProgress size={40} />
+        <div style={{ color: '#666', fontSize: '16px' }}>Loading contract...</div>
       </div>
     );
   }
 
+  // Error state
   if (error) {
     return (
-      <div className="kitties-reader-container">
-        <div
-          className="error-message"
-          style={{
-            color: '#d32f2f',
-            padding: '16px',
-            backgroundColor: '#ffebee',
-            borderRadius: '8px',
-            border: '1px solid #ffcdd2',
-            marginBottom: '16px',
-          }}
-        >
-          <strong>Error:</strong> {error.message}
-        </div>
+      <div
+        style={{
+          padding: '24px',
+          backgroundColor: '#ffebee',
+          borderRadius: '8px',
+          border: '1px solid #ffcdd2',
+          margin: '16px 0',
+        }}
+      >
+        <div style={{ color: '#d32f2f', fontWeight: 'bold', marginBottom: '8px' }}>Error loading kitties</div>
+        <div style={{ color: '#666', fontSize: '14px', marginBottom: '16px' }}>{error.message}</div>
         <button
-          className="retry-button"
-          onClick={() => {
-            void refreshValue();
-          }}
+          onClick={() => void loadMyKitties()}
           style={{
             padding: '8px 16px',
             backgroundColor: '#1976d2',
@@ -394,178 +260,164 @@ export const KittiesReaderDisplay: React.FC<{
     );
   }
 
+  // Contract not found
   if (!contractExists) {
     return (
-      <div className="kitties-reader-container">
-        <div
-          className="warning-message"
-          style={{
-            color: '#ed6c02',
-            padding: '16px',
-            backgroundColor: '#fff3e0',
-            borderRadius: '8px',
-            border: '1px solid #ffcc02',
-          }}
-        >
+      <div
+        style={{
+          padding: '24px',
+          backgroundColor: '#fff3e0',
+          borderRadius: '8px',
+          border: '1px solid #ffcc02',
+          margin: '16px 0',
+        }}
+      >
+        <div style={{ color: '#ed6c02', fontWeight: 'bold' }}>
           Contract not found or is not a valid kitties contract.
         </div>
       </div>
     );
   }
 
+  // Main gallery view
   return (
-    <div
-      className="kitties-reader-container"
-      style={{
-        padding: '24px',
-        backgroundColor: '#f5f5f5',
-        borderRadius: '8px',
-        border: '1px solid #e0e0e0',
-        maxWidth: '400px',
-        margin: '0 auto',
-      }}
-    >
-      {/* Age Verification Modal */}
-      {showAgeVerification && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-          }}
-        >
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={closeAgeVerification}
-              style={{
-                position: 'absolute',
-                top: -10,
-                right: -10,
-                background: '#ff1744',
-                color: 'white',
-                border: 'none',
-                borderRadius: '50%',
-                width: 30,
-                height: 30,
-                cursor: 'pointer',
-                zIndex: 1001,
-                fontSize: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              ×
-            </button>
-            <AgeVerificationForm
-              onSubmit={handleAgeVerification}
-              isLoading={isVerificationLoading}
-              error={error}
-              walletPublicKey={walletPublicKey}
-            />
+    <div style={{ padding: '24px' }}>
+      {/* Header */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '24px',
+        }}
+      >
+        <div>
+          <h2 style={{ margin: '0 0 8px 0', color: '#333' }}>My Kitties Collection</h2>
+          <div style={{ color: '#666', fontSize: '14px' }}>
+            {myKitties.length} kitties owned
+            {walletPublicKey && (
+              <span
+                style={{
+                  marginLeft: '16px',
+                  fontFamily: 'monospace',
+                  fontSize: '12px',
+                  backgroundColor: '#f5f5f5',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                }}
+              >
+                {walletPublicKey.slice(0, 8)}...{walletPublicKey.slice(-8)}
+              </span>
+            )}
           </div>
         </div>
-      )}
 
-      <h2
-        style={{
-          margin: '0 0 20px 0',
-          color: '#333',
-          textAlign: 'center',
-        }}
-      >
-        Kitties Reader
-      </h2>
-
-      <div
-        className="kitties-value-display"
-        style={{
-          backgroundColor: 'white',
-          padding: '20px',
-          borderRadius: '8px',
-          border: '2px solid #1976d2',
-          textAlign: 'center',
-          marginBottom: '16px',
-        }}
-      >
-        <div
-          style={{
-            fontSize: '14px',
-            color: '#666',
-            marginBottom: '8px',
-          }}
-        >
-          Current Kitties Value:
-        </div>
-        <div
-          style={{
-            fontSize: '36px',
-            fontWeight: 'bold',
-            color: '#1976d2',
-            fontFamily: 'monospace',
-          }}
-        >
-          {kittiesValue?.toString() || '0'}
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: '8px' }}>
         <button
-          className="increment-button"
-          onClick={() => {
-            void incrementKitties();
-          }}
+          onClick={() => void handleCreateKitty()}
           disabled={isLoading}
           style={{
-            flex: 1,
-            padding: '12px',
+            padding: '12px 24px',
             fontSize: '16px',
             backgroundColor: isLoading ? '#cccccc' : '#2e7d32',
             color: 'white',
             border: 'none',
-            borderRadius: '4px',
+            borderRadius: '8px',
             cursor: isLoading ? 'not-allowed' : 'pointer',
+            fontWeight: 'bold',
             transition: 'background-color 0.2s',
           }}
         >
-          {isLoading ? 'Incrementing...' : 'Increment Kitties'}
+          {isLoading ? 'Creating...' : '+ Create New Kitty'}
         </button>
+      </div>
 
-        <button
-          className="refresh-button"
-          onClick={() => {
-            void refreshValue();
+      {/* Kitties Grid */}
+      {myKitties.length === 0 ? (
+        <div
+          style={{
+            textAlign: 'center',
+            padding: '60px 20px',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '12px',
+            border: '2px dashed #dee2e6',
           }}
+        >
+          <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>🐱</div>
+          <h3 style={{ margin: '0 0 8px 0', color: '#495057', fontSize: '24px' }}>No kitties yet!</h3>
+          <p style={{ margin: '0 0 24px 0', color: '#6c757d', fontSize: '16px' }}>
+            Create your first kitty to start your collection.
+          </p>
+          <button
+            onClick={() => void handleCreateKitty()}
+            disabled={isLoading}
+            style={{
+              padding: '16px 32px',
+              fontSize: '18px',
+              backgroundColor: isLoading ? '#cccccc' : '#2e7d32',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              fontWeight: 'bold',
+              transition: 'background-color 0.2s',
+            }}
+          >
+            {isLoading ? 'Creating...' : 'Create My First Kitty'}
+          </button>
+        </div>
+      ) : (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+            gap: '24px',
+            marginTop: '24px',
+          }}
+        >
+          {myKitties.map((kitty) => (
+            <KittyCard
+              key={kitty.id.toString()}
+              kitty={kitty}
+              onTransfer={handleTransferKitty}
+              onSetPrice={handleSetPrice}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Refresh Button */}
+      <div
+        style={{
+          textAlign: 'center',
+          marginTop: '32px',
+          paddingTop: '24px',
+          borderTop: '1px solid #e0e0e0',
+        }}
+      >
+        <button
+          onClick={() => void loadMyKitties()}
           disabled={isLoading}
           style={{
-            flex: 1,
-            padding: '12px',
-            fontSize: '16px',
+            padding: '12px 24px',
+            fontSize: '14px',
             backgroundColor: isLoading ? '#cccccc' : '#1976d2',
             color: 'white',
             border: 'none',
-            borderRadius: '4px',
+            borderRadius: '6px',
             cursor: isLoading ? 'not-allowed' : 'pointer',
             transition: 'background-color 0.2s',
           }}
         >
-          {isLoading ? 'Refreshing...' : 'Refresh Value'}
+          {isLoading ? 'Refreshing...' : 'Refresh Collection'}
         </button>
       </div>
     </div>
   );
 };
 
+// Address input component for selecting a contract
 export const KittiesAddressInput: React.FC<{
-  // eslint-disable-next-line no-unused-vars
-  onAddressSubmit: (_address: ContractAddress) => void;
+  onAddressSubmit: (address: ContractAddress) => void;
   initialAddress?: string;
 }> = ({ onAddressSubmit, initialAddress = '' }) => {
   const [addressInput, setAddressInput] = useState<string>(initialAddress);
@@ -597,7 +449,6 @@ export const KittiesAddressInput: React.FC<{
 
   return (
     <div
-      className="kitties-address-input"
       style={{
         padding: '24px',
         backgroundColor: '#f5f5f5',
@@ -607,15 +458,7 @@ export const KittiesAddressInput: React.FC<{
         margin: '0 auto',
       }}
     >
-      <h2
-        style={{
-          margin: '0 0 20px 0',
-          color: '#333',
-          textAlign: 'center',
-        }}
-      >
-        Load Kitties Contract
-      </h2>
+      <h2 style={{ margin: '0 0 20px 0', color: '#333', textAlign: 'center' }}>Load Kitties Contract</h2>
 
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: '16px' }}>
@@ -712,12 +555,7 @@ export const KittiesReaderApplication: React.FC<{
 
   return (
     <div>
-      <div
-        style={{
-          marginBottom: '24px',
-          textAlign: 'center',
-        }}
-      >
+      <div style={{ marginBottom: '24px', textAlign: 'center' }}>
         <div
           style={{
             display: 'inline-block',
@@ -729,7 +567,7 @@ export const KittiesReaderApplication: React.FC<{
             fontSize: '1.1rem',
             letterSpacing: '1px',
             color: '#222',
-            minWidth: '540px', // fits 64 hex chars in monospace
+            minWidth: '540px',
             maxWidth: '100%',
             wordBreak: 'break-all',
             boxShadow: '0 2px 8px 0 rgba(25, 118, 210, 0.07)',
@@ -759,9 +597,9 @@ export const KittiesReaderApplication: React.FC<{
         </button>
       </div>
 
-      <KittiesReaderProvider contractAddress={contractAddress} providers={providers}>
-        <KittiesReaderDisplay walletPublicKey={walletPublicKey} />
-      </KittiesReaderProvider>
+      <KittiesReader contractAddress={contractAddress} providers={providers} walletPublicKey={walletPublicKey} />
     </div>
   );
 };
+
+export default KittiesReader;

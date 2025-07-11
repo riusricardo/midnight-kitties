@@ -23,7 +23,6 @@
  * damages or losses arising from the use of this software.
  */
 
-/* eslint-disable prettier/prettier */
 import React, { useState } from 'react';
 import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider, Container, Box, Typography, Paper, Tabs, Tab } from '@mui/material';
@@ -33,7 +32,6 @@ import { RuntimeConfigurationProvider, useRuntimeConfiguration } from '../config
 import { MidnightWalletProvider, useMidnightWallet } from './MidnightWallet.js';
 import * as pino from 'pino';
 import { type NetworkId, setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
-import { KittiesApplication } from './KittiesDeploy.js';
 import { KittiesReaderApplication } from './KittiesReader.js';
 import { type Logger } from 'pino';
 import { createKittiesProviders } from '@repo/kitties-api/browser-api';
@@ -103,7 +101,7 @@ const KittiesAppContent: React.FC<{ logger: Logger }> = () => {
             ) : (
               <>
                 {tabValue === 0 && kittiesProviders && (
-                  <KittiesApplication
+                  <KittiesReaderApplication
                     providers={kittiesProviders}
                     walletPublicKey={walletState.walletAPI?.coinPublicKey}
                   />

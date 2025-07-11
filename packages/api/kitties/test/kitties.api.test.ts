@@ -272,7 +272,7 @@ describe('API', () => {
     const kittiesApi = await KittiesAPI.deploy(providers, {});
 
     // Get wallet address using API conversion
-    const walletBytes = getWalletAddress()
+    const walletBytes = getWalletAddress();
 
     // Create a test address for ownership operations
     const testAddress = { bytes: new Uint8Array(32).fill(1) };
@@ -329,7 +329,7 @@ describe('API', () => {
     const kittiesApi = await KittiesAPI.deploy(providers, {});
 
     // Get wallet address
-    const walletBytes = getWalletAddress()
+    const walletBytes = getWalletAddress();
 
     // Create test addresses for approval operations
     const approvedAddress = { bytes: new Uint8Array(32).fill(1) };

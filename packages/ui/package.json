@@ -33,7 +33,8 @@
     "@repo/kitties-api": "*",
     "dayjs": "^1.11.13",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "cryptokitty-generator": "git+https://riusricardo@github.com/riusricardo/kitties-generator"
   },
   "devDependencies": {
     "@originjs/vite-plugin-commonjs": "1.0.3",

@@ -3,11 +3,11 @@ import { parseCoinPublicKeyToHex, parseEncPublicKeyToHex } from '@midnight-ntwrk
 import { ShieldedAddress, MidnightBech32m } from '@midnight-ntwrk/wallet-sdk-address-format';
 import { parseAddress } from '../common/utils.js';
 /**
- * Safe wrapper for parseAddress to handle potential errors
+ * Safe wrapper for parseAddress to handle potential errors (Node.js version with full wallet support)
  * @param input - The input string to parse
  * @returns The parsed address or throws an error
  */
-export function safeParseAddress(input: string): Uint8Array {
+export function safeParseAddressWithWallet(input: string): Uint8Array {
   if (!input || typeof input !== 'string') {
     throw new Error('Input must be a non-empty string');
   }
@@ -57,4 +57,3 @@ export function convertWalletPublicKeyToBytes(input: unknown): Uint8Array {
     );
   }
 }
-

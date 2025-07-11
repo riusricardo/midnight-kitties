@@ -24,9 +24,9 @@
  */
 
 export { default as App } from './App.js';
-export * from './AgeVerificationForm.js';
-export * from './KittiesDeploy.js';
 export * from './KittiesReader.js';
+export * from './KittyCard.js';
+export * from './MyKittiesGallery.js';
 export * from './MidnightWallet.js';
 export * from './WalletWidget.js';
 

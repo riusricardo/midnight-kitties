@@ -50,7 +50,7 @@ import {
   formatCount,
   safeParseBigInt,
   contractConfig,
-  safeParseAddress,
+  safeParseAddressWithWallet,
   convertWalletPublicKeyToBytes,
 } from '@repo/kitties-api';
 import { NodeZkConfigProvider } from '@midnight-ntwrk/midnight-js-node-zk-config-provider';
@@ -116,7 +116,7 @@ const viewMyKitties = async (kittiesApi: KittiesAPI, providers: KittiesProviders
     const coinPublicKey = providers.walletProvider.coinPublicKey;
     const walletBytes = convertWalletPublicKeyToBytes(coinPublicKey);
     const walletAddress = { bytes: walletBytes };
-    
+
     const kitties = await kittiesApi.getMyKitties(walletAddress);
 
     if (kitties.length === 0) {
@@ -171,7 +171,7 @@ const transferKitty = async (kittiesApi: KittiesAPI, rli: Interface): Promise<vo
     const kittyId = safeParseBigInt(kittyIdStr);
 
     const toAddressStr = await rli.question('Enter the recipient address: ');
-    const toAddress = safeParseAddress(toAddressStr);
+    const toAddress = safeParseAddressWithWallet(toAddressStr);
 
     logger.info(`Transferring kitty #${kittyId} to ${formatAddress(toAddress)}...`);
     await kittiesApi.transferKitty({ to: { bytes: toAddress }, kittyId });
@@ -187,10 +187,10 @@ const transferKittyFrom = async (kittiesApi: KittiesAPI, rli: Interface): Promis
     const kittyId = safeParseBigInt(kittyIdStr);
 
     const fromAddressStr = await rli.question('Enter the owner address: ');
-    const fromAddress = safeParseAddress(fromAddressStr);
+    const fromAddress = safeParseAddressWithWallet(fromAddressStr);
 
     const toAddressStr = await rli.question('Enter the recipient address: ');
-    const toAddress = safeParseAddress(toAddressStr);
+    const toAddress = safeParseAddressWithWallet(toAddressStr);
 
     logger.info(`Transferring kitty #${kittyId} from ${formatAddress(fromAddress)} to ${formatAddress(toAddress)}...`);
     await kittiesApi.transferKittyFrom({ from: { bytes: fromAddress }, to: { bytes: toAddress }, kittyId });
@@ -473,7 +473,7 @@ const nftOperations = async (kittiesApi: KittiesAPI, rli: Interface): Promise<vo
 const checkBalance = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
   try {
     const addressStr = await rli.question('Enter the address to check balance for: ');
-    const address = safeParseAddress(addressStr);
+    const address = safeParseAddressWithWallet(addressStr);
 
     const balance = await kittiesApi.balanceOf({ bytes: address });
     logger.info(`Address ${address} has ${formatCount(balance)} kitties`);
@@ -497,7 +497,7 @@ const checkOwner = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void>
 const approveToken = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
   try {
     const toAddressStr = await rli.question('Enter the address to approve: ');
-    const toAddress = safeParseAddress(toAddressStr);
+    const toAddress = safeParseAddressWithWallet(toAddressStr);
 
     const tokenIdStr = await rli.question('Enter the token ID to approve: ');
     const tokenId = safeParseBigInt(tokenIdStr);
@@ -525,7 +525,7 @@ const checkApproved = async (kittiesApi: KittiesAPI, rli: Interface): Promise<vo
 const setApprovalForAll = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
   try {
     const operatorAddressStr = await rli.question('Enter the operator address: ');
-    const operatorAddress = safeParseAddress(operatorAddressStr);
+    const operatorAddress = safeParseAddressWithWallet(operatorAddressStr);
 
     const approvedStr = await rli.question('Approve? (y/n): ');
     const approved = approvedStr.toLowerCase() === 'y' || approvedStr.toLowerCase() === 'yes';
@@ -543,10 +543,10 @@ const setApprovalForAll = async (kittiesApi: KittiesAPI, rli: Interface): Promis
 const checkApprovedForAll = async (kittiesApi: KittiesAPI, rli: Interface): Promise<void> => {
   try {
     const ownerAddressStr = await rli.question('Enter the owner address: ');
-    const ownerAddress = safeParseAddress(ownerAddressStr);
+    const ownerAddress = safeParseAddressWithWallet(ownerAddressStr);
 
     const operatorAddressStr = await rli.question('Enter the operator address: ');
-    const operatorAddress = safeParseAddress(operatorAddressStr);
+    const operatorAddress = safeParseAddressWithWallet(operatorAddressStr);
 
     const isApproved = await kittiesApi.isApprovedForAll({ bytes: ownerAddress }, { bytes: operatorAddress });
     logger.info(
