@@ -1,17 +1,21 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /**
  * @file MyKittiesGallery.tsx
  * @author Ricardo Rius
  * @license GPL-3.0
  */
 
-/* global console, window */
-import React, { useState, useEffect } from 'react';
+/* global console */
+import React, { useState, useEffect, useRef } from 'react';
 import { CircularProgress, Backdrop, Typography, Box } from '@mui/material';
 import { KittyCard, type KittyData } from './KittyCard';
 
 interface MyKittiesGalleryProps {
   kittiesApi: any; // API instance
-  walletPublicKey?: string;
+  walletPublicKey?: { bytes: Uint8Array } | Uint8Array;
   isLoading?: boolean;
 }
 
@@ -21,11 +25,63 @@ export const MyKittiesGallery: React.FC<MyKittiesGalleryProps> = ({
   isLoading: externalLoading = false,
 }) => {
   const [myKitties, setMyKitties] = useState<KittyData[]>([]);
+  const [kittyOffers, setKittyOffers] = useState<Map<string, any[]>>(new Map());
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadingMessage, setLoadingMessage] = useState<string>('');
   const [error, setError] = useState<Error | null>(null);
+  const [isRealTimeConnected, setIsRealTimeConnected] = useState<boolean>(false);
 
-  const loadMyKitties = async () => {
+  // Add subscription refs for cleanup
+  const stateSubscriptionRef = useRef<any>(null);
+  const lastUpdateRef = useRef<number>(0);
+
+  // Set up real-time subscription to contract state changes
+  useEffect(() => {
+    if (!kittiesApi || !walletPublicKey) {
+      setIsRealTimeConnected(false);
+      return;
+    }
+
+    setIsRealTimeConnected(true);
+
+    // Subscribe to the contract state observable for real-time updates
+    stateSubscriptionRef.current = kittiesApi.state$.subscribe({
+      next: () => {
+        // Debounce rapid updates (max one update per second)
+        const now = Date.now();
+        if (now - lastUpdateRef.current < 1000) {
+          return;
+        }
+        lastUpdateRef.current = now;
+
+        // Silently refresh kitties when state changes (no loading spinner)
+        void loadMyKitties(true);
+      },
+      error: () => {
+        setIsRealTimeConnected(false);
+        // Try to reconnect after a delay
+        setTimeout(() => {
+          if (kittiesApi && walletPublicKey) {
+            void loadMyKitties();
+          }
+        }, 5000);
+      },
+    });
+
+    // Initial load
+    void loadMyKitties();
+
+    // Cleanup subscription on unmount or dependencies change
+    return () => {
+      if (stateSubscriptionRef.current) {
+        stateSubscriptionRef.current.unsubscribe();
+        stateSubscriptionRef.current = null;
+      }
+      setIsRealTimeConnected(false);
+    };
+  }, [kittiesApi, walletPublicKey]);
+
+  const loadMyKitties = async (silent = false) => {
     if (!kittiesApi) {
       setError(new Error('API not initialized'));
       return;
@@ -37,14 +93,107 @@ export const MyKittiesGallery: React.FC<MyKittiesGalleryProps> = ({
     }
 
     try {
-      setIsLoading(true);
-      setError(null);
+      if (!silent) {
+        setIsLoading(true);
+        setError(null);
+      }
 
       // Pass wallet public key directly to API
-      const kitties = await kittiesApi.getMyKitties(walletPublicKey);
-      setMyKitties(kitties);
+      // Normalize walletPublicKey to the expected format
+      const normalizedWalletKey = walletPublicKey instanceof Uint8Array ? { bytes: walletPublicKey } : walletPublicKey;
+
+      // Call the API with the normalized wallet public key object
+      const kitties = await kittiesApi.getMyKitties(normalizedWalletKey);
+      // Sort kitties by ID in ascending order
+      const sortedKitties = kitties.sort((a: KittyData, b: KittyData) => {
+        return Number(a.id) - Number(b.id);
+      });
+      setMyKitties(sortedKitties);
+
+      // Fetch offers for each kitty
+      setLoadingMessage('Loading offers...');
+      const offersMap = new Map<string, any[]>();
+
+      for (const kitty of sortedKitties) {
+        try {
+          const offers = await kittiesApi.getOffersForKitty(kitty.id);
+
+          if (!Array.isArray(offers)) {
+            offersMap.set(kitty.id.toString(), []);
+            continue;
+          }
+
+          // Convert offer format to match the expected interface
+          const formattedOffers = offers.map((offer: any) => {
+            // Handle different possible offer structures
+            let buyerBytes = null;
+            let buyerHex = 'unknown';
+            let offerAmount = 0;
+
+            try {
+              // Try to extract buyer information from various possible fields
+              if (offer.from) {
+                if (offer.from.bytes) {
+                  buyerBytes = offer.from;
+                  buyerHex = Buffer.from(offer.from.bytes).toString('hex');
+                } else if (offer.from instanceof Uint8Array) {
+                  buyerBytes = { bytes: offer.from };
+                  buyerHex = Buffer.from(offer.from).toString('hex');
+                }
+              } else if (offer.buyer) {
+                if (offer.buyer.bytes) {
+                  buyerBytes = offer.buyer;
+                  buyerHex = Buffer.from(offer.buyer.bytes).toString('hex');
+                } else if (offer.buyer instanceof Uint8Array) {
+                  buyerBytes = { bytes: offer.buyer };
+                  buyerHex = Buffer.from(offer.buyer).toString('hex');
+                }
+              } else if (offer.bidder) {
+                // Another possible field name
+                if (offer.bidder.bytes) {
+                  buyerBytes = offer.bidder;
+                  buyerHex = Buffer.from(offer.bidder.bytes).toString('hex');
+                } else if (offer.bidder instanceof Uint8Array) {
+                  buyerBytes = { bytes: offer.bidder };
+                  buyerHex = Buffer.from(offer.bidder).toString('hex');
+                }
+              }
+
+              // Try to extract amount from various possible fields
+              offerAmount = offer.amount || offer.price || offer.bid || offer.value || 0;
+
+              // If we still don't have buyer info, check if the offer itself is a structured object
+              if (!buyerBytes && typeof offer === 'object') {
+                // If offer has bytes directly
+                if (offer.bytes) {
+                  buyerBytes = offer;
+                  buyerHex = Buffer.from(offer.bytes).toString('hex');
+                }
+              }
+            } catch {
+              // Error processing offer - skip it
+            }
+
+            return {
+              id: `${kitty.id}_${buyerHex}_${Date.now()}`,
+              amount: offerAmount,
+              buyer: buyerHex,
+              buyerBytes: buyerBytes,
+              timestamp: new Date(),
+            };
+          });
+
+          // Filter out any malformed offers
+          const validOffers = formattedOffers.filter((offer) => offer.buyer !== 'unknown' && offer.buyerBytes !== null);
+
+          offersMap.set(kitty.id.toString(), validOffers);
+        } catch {
+          offersMap.set(kitty.id.toString(), []);
+        }
+      }
+
+      setKittyOffers(offersMap);
     } catch (err) {
-      console.error('Error loading my kitties:', err);
       setError(err instanceof Error ? err : new Error('Failed to load kitties'));
     } finally {
       setIsLoading(false);
@@ -57,40 +206,25 @@ export const MyKittiesGallery: React.FC<MyKittiesGalleryProps> = ({
     }
   }, [kittiesApi, externalLoading, walletPublicKey]);
 
-  const handleTransferKitty = async (kittyId: bigint) => {
-    const toAddress = window.prompt('Enter recipient address (hex):');
-    if (!toAddress || !kittiesApi) return;
+  const handleTransferKitty = async (kittyId: bigint, toAddress: string) => {
+    if (!kittiesApi) return;
 
     try {
-      setIsLoading(true);
-      setLoadingMessage('Transferring kitty...');
       // Convert hex string to bytes
       const toBytes = new Uint8Array(Buffer.from(toAddress, 'hex'));
       await kittiesApi.transferKitty({ to: { bytes: toBytes }, kittyId });
-      // Reload kitties after transfer
-      await loadMyKitties();
+      // Note: KittyCard will handle its own loading state and UI updates
     } catch (err) {
-      console.error('Error transferring kitty:', err);
       setError(err instanceof Error ? err : new Error('Failed to transfer kitty'));
-    } finally {
-      setIsLoading(false);
-      setLoadingMessage('');
     }
   };
 
   const handleSetPrice = async (kittyId: bigint, price: bigint) => {
     try {
-      setIsLoading(true);
-      setLoadingMessage('Setting price...');
       await kittiesApi.setPrice({ kittyId, price });
-      // Reload kitties after price change
-      await loadMyKitties();
+      // Note: KittyCard will handle its own loading state and UI updates
     } catch (err) {
-      console.error('Error setting price:', err);
       setError(err instanceof Error ? err : new Error('Failed to set price'));
-    } finally {
-      setIsLoading(false);
-      setLoadingMessage('');
     }
   };
 
@@ -101,14 +235,43 @@ export const MyKittiesGallery: React.FC<MyKittiesGalleryProps> = ({
       setIsLoading(true);
       setLoadingMessage('Creating kitty...');
       await kittiesApi.createKitty();
-      // Reload kitties after creation
-      await loadMyKitties();
+      // Note: No manual reload needed - state subscription will handle updates
     } catch (err) {
-      console.error('Error creating kitty:', err);
       setError(err instanceof Error ? err : new Error('Failed to create kitty'));
     } finally {
       setIsLoading(false);
       setLoadingMessage('');
+    }
+  };
+
+  const handleBreedKitty = async (parentKitty1Id: bigint, parentKitty2Id: bigint) => {
+    if (!kittiesApi) return;
+
+    try {
+      await kittiesApi.breedKitty({ kittyId1: parentKitty1Id, kittyId2: parentKitty2Id });
+      // Note: No manual reload needed - state subscription will handle updates
+      // Individual KittyCard components handle their own loading states
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to breed kitties'));
+    }
+  };
+
+  const handleApproveOffer = async (kittyId: bigint, offerId: string) => {
+    if (!kittiesApi) return;
+
+    try {
+      // Extract buyer bytes from the stored offer data
+      const offers = kittyOffers.get(kittyId.toString()) || [];
+      const offer = offers.find((o) => o.id === offerId);
+
+      if (!offer || !offer.buyerBytes) {
+        throw new Error('Offer not found or invalid buyer data');
+      }
+
+      await kittiesApi.approveOffer({ kittyId, buyer: offer.buyerBytes });
+      // Note: KittyCard will handle its own loading state and UI updates
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to approve offer'));
     }
   };
 
@@ -176,22 +339,52 @@ export const MyKittiesGallery: React.FC<MyKittiesGalleryProps> = ({
         >
           <div>
             <h2 style={{ margin: '0 0 8px 0', color: '#333' }}>My Kitties Collection</h2>
-            <div style={{ color: '#666', fontSize: '14px' }}>
-              {myKitties.length} kitties owned
-              {walletPublicKey && (
+            <div style={{ color: '#666', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <span>
+                {myKitties.length} kitties owned
+                {walletPublicKey && (
+                  <span
+                    style={{
+                      marginLeft: '16px',
+                      fontFamily: 'monospace',
+                      fontSize: '12px',
+                      backgroundColor: '#f5f5f5',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    {(() => {
+                      const bytes = walletPublicKey instanceof Uint8Array ? walletPublicKey : walletPublicKey.bytes;
+                      const hex = Array.from(bytes)
+                        .map((b: number) => b.toString(16).padStart(2, '0'))
+                        .join('');
+                      return `${hex.slice(0, 8)}...${hex.slice(-8)}`;
+                    })()}
+                  </span>
+                )}
+              </span>
+              {/* Real-time connection indicator */}
+              <span
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '12px',
+                  color: isRealTimeConnected ? '#4caf50' : '#ff9800',
+                  fontWeight: 500,
+                }}
+              >
                 <span
                   style={{
-                    marginLeft: '16px',
-                    fontFamily: 'monospace',
-                    fontSize: '12px',
-                    backgroundColor: '#f5f5f5',
-                    padding: '2px 8px',
-                    borderRadius: '4px',
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: isRealTimeConnected ? '#4caf50' : '#ff9800',
+                    display: 'inline-block',
                   }}
-                >
-                  {walletPublicKey.slice(0, 8)}...{walletPublicKey.slice(-8)}
-                </span>
-              )}
+                />
+                {isRealTimeConnected ? 'Live Updates' : 'Connecting...'}
+              </span>
             </div>
           </div>
 
@@ -283,8 +476,11 @@ export const MyKittiesGallery: React.FC<MyKittiesGalleryProps> = ({
               <KittyCard
                 key={kitty.id.toString()}
                 kitty={kitty}
-                onTransfer={handleTransferKitty}
-                onSetPrice={handleSetPrice}
+                onTransfer={kittiesApi ? handleTransferKitty : undefined}
+                onSetPrice={kittiesApi ? handleSetPrice : undefined}
+                onBreedKitty={kittiesApi ? handleBreedKitty : undefined}
+                onApproveOffer={kittiesApi ? handleApproveOffer : undefined}
+                offers={kittyOffers.get(kitty.id.toString()) || []}
               />
             ))}
           </div>
