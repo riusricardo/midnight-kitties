@@ -8,7 +8,6 @@
 import React, { useState, useEffect } from 'react';
 import { CircularProgress } from '@mui/material';
 import { KittyCard, type KittyData } from './KittyCard';
-import { parseAddress } from '@repo/kitties-api';
 
 interface MyKittiesGalleryProps {
   kittiesApi: any; // API instance
@@ -40,11 +39,8 @@ export const MyKittiesGallery: React.FC<MyKittiesGalleryProps> = ({
       setIsLoading(true);
       setError(null);
 
-      // Convert wallet public key to bytes format
-      const walletBytes = parseAddress(walletPublicKey);
-      const walletAddress = { bytes: walletBytes };
-
-      const kitties = await kittiesApi.getMyKitties(walletAddress);
+      // Pass wallet public key directly to API
+      const kitties = await kittiesApi.getMyKitties(walletPublicKey);
       setMyKitties(kitties);
     } catch (err) {
       console.error('Error loading my kitties:', err);

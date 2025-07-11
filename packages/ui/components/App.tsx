@@ -25,7 +25,7 @@
 
 import React, { useState } from 'react';
 import CssBaseline from '@mui/material/CssBaseline';
-import { ThemeProvider, Container, Box, Typography, Paper, Tabs, Tab } from '@mui/material';
+import { ThemeProvider, Container, Box, Typography, Paper } from '@mui/material';
 import { theme } from '../config/theme.js';
 import { LocalStateProvider } from '../contexts/LocalStateProviderContext.js';
 import { RuntimeConfigurationProvider, useRuntimeConfiguration } from '../config/RuntimeConfiguration.js';
@@ -39,13 +39,8 @@ import type { KittiesProviders } from '@repo/kitties-api';
 
 const KittiesAppContent: React.FC<{ logger: Logger }> = () => {
   const walletState = useMidnightWallet();
-  const [tabValue, setTabValue] = useState(0);
   const [kittiesProviders, setKittiesProviders] = useState<KittiesProviders | null>(null);
   const [providersLoading, setProvidersLoading] = useState(false);
-
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
-  };
 
   // Initialize providers when wallet is connected
   React.useEffect(() => {
@@ -79,55 +74,59 @@ const KittiesAppContent: React.FC<{ logger: Logger }> = () => {
   ]);
 
   return (
-    <Container maxWidth="md" sx={{ mt: 4 }}>
+    <Box sx={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
       {/* Wallet Widget - positioned at top right */}
       <Box sx={{ position: 'fixed', top: 16, right: 16, zIndex: 1000 }}>{walletState.widget}</Box>
 
-      <Typography variant="h3" component="h1" gutterBottom align="center">
-        Midnight Kitties App
-      </Typography>
-      <Box sx={{ my: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 600 }}>
-        {walletState.isConnected ? (
-          <Paper elevation={3} sx={{ p: 3, width: '100%', maxWidth: 600 }}>
-            <Tabs value={tabValue} onChange={handleTabChange} centered sx={{ mb: 3 }}>
-              <Tab label="Deploy & Manage" />
-              <Tab label="Read Existing Contract" />
-            </Tabs>
+      {/* Header */}
+      <Box sx={{ backgroundColor: 'white', borderBottom: '1px solid #e0e0e0', py: 3 }}>
+        <Container maxWidth={false} sx={{ maxWidth: '95%' }}>
+          <Typography variant="h3" component="h1" align="center" sx={{ color: '#333', fontWeight: 'bold' }}>
+            🐱 Midnight Kitties Gallery
+          </Typography>
+          <Typography variant="h6" component="p" align="center" sx={{ color: '#666', mt: 1 }}>
+            Discover and manage your unique crypto kitties collection
+          </Typography>
+        </Container>
+      </Box>
 
+      {/* Main Content */}
+      <Container maxWidth={false} sx={{ maxWidth: '95%', py: 3 }}>
+        {walletState.isConnected ? (
+          <Box sx={{ width: '100%' }}>
             {providersLoading ? (
-              <Box sx={{ textAlign: 'center', py: 3 }}>
-                <Typography>Loading providers...</Typography>
-              </Box>
+              <Paper elevation={2} sx={{ p: 4, textAlign: 'center' }}>
+                <Typography variant="h6" color="textSecondary">
+                  Initializing Kitties providers...
+                </Typography>
+              </Paper>
+            ) : kittiesProviders ? (
+              <KittiesReaderApplication
+                providers={kittiesProviders}
+                walletPublicKey={walletState.walletAPI?.coinPublicKey}
+              />
             ) : (
-              <>
-                {tabValue === 0 && kittiesProviders && (
-                  <KittiesReaderApplication
-                    providers={kittiesProviders}
-                    walletPublicKey={walletState.walletAPI?.coinPublicKey}
-                  />
-                )}
-                {tabValue === 1 && kittiesProviders && (
-                  <KittiesReaderApplication
-                    providers={kittiesProviders}
-                    walletPublicKey={walletState.walletAPI?.coinPublicKey}
-                  />
-                )}
-              </>
+              <Paper elevation={2} sx={{ p: 4, textAlign: 'center' }}>
+                <Typography variant="h6" color="error">
+                  Failed to initialize providers. Please try reconnecting your wallet.
+                </Typography>
+              </Paper>
             )}
-          </Paper>
+          </Box>
         ) : (
-          <Paper elevation={3} sx={{ p: 3, width: '100%', maxWidth: 600, textAlign: 'center' }}>
-            <Typography variant="h6" gutterBottom color="textSecondary">
-              Welcome to Midnight Kitties App
+          <Paper elevation={3} sx={{ p: 4, textAlign: 'center', maxWidth: 600, mx: 'auto' }}>
+            <Typography variant="h4" gutterBottom sx={{ color: '#333' }}>
+              🐱 Welcome to Midnight Kitties
             </Typography>
-            <Typography variant="body1" color="textSecondary" sx={{ mb: 3 }}>
-              Please connect your Midnight Lace wallet to start using the Kitties Application
+            <Typography variant="body1" color="textSecondary" sx={{ mb: 3, fontSize: '1.1rem' }}>
+              Connect your Midnight Lace wallet to start exploring your unique crypto kitties collection. Create, view,
+              and manage your adorable digital companions!
             </Typography>
-            {walletState.widget}
+            <Box sx={{ mt: 3 }}>{walletState.widget}</Box>
           </Paper>
         )}
-      </Box>
-    </Container>
+      </Container>
+    </Box>
   );
 };
 

@@ -55,11 +55,14 @@ export const KittyCard: React.FC<KittyCardProps> = ({ kitty, onTransfer, onSetPr
         setIsLoading(true);
         setError('');
 
-        // Use the actual CatGenerator to create SVG from DNA
-        const generator = new CatGenerator();
+        // Use the actual CatGenerator to create responsive SVG from DNA
+        const generator = new CatGenerator({ responsive: true });
         const dnaString = kitty.dna.toString();
-        const generatedCat = generator.generateCat(dnaString);
-        setCatSvg(generatedCat.svgData);
+
+        // Generate responsive cat using the proper configuration
+        const responsiveCat = generator.generateCat(dnaString);
+
+        setCatSvg(responsiveCat.svgData);
       } catch (err) {
         console.error('Error generating kitty SVG:', err);
         setError('Failed to generate kitty image');
@@ -91,8 +94,9 @@ export const KittyCard: React.FC<KittyCardProps> = ({ kitty, onTransfer, onSetPr
         border: '1px solid #e0e0e0',
         transition: 'transform 0.2s, box-shadow 0.2s',
         cursor: 'pointer',
-        minWidth: '280px',
-        maxWidth: '320px',
+        width: '100%',
+        maxWidth: '350px',
+        margin: '0 auto',
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = 'translateY(-4px)';
@@ -106,8 +110,8 @@ export const KittyCard: React.FC<KittyCardProps> = ({ kitty, onTransfer, onSetPr
       {/* Kitty Image */}
       <div
         style={{
-          width: '100%',
-          height: '200px',
+          width: '220px', // Fixed width to match the responsive SVG approach
+          height: '220px', // Fixed height - SVG will maintain aspect ratio inside
           backgroundColor: '#f8f9fa',
           borderRadius: '8px',
           display: 'flex',
@@ -115,6 +119,8 @@ export const KittyCard: React.FC<KittyCardProps> = ({ kitty, onTransfer, onSetPr
           justifyContent: 'center',
           marginBottom: '12px',
           border: '2px solid #e9ecef',
+          position: 'relative',
+          margin: '0 auto', // Center the fixed-size container
         }}
       >
         {isLoading ? (
@@ -122,7 +128,18 @@ export const KittyCard: React.FC<KittyCardProps> = ({ kitty, onTransfer, onSetPr
         ) : error ? (
           <div style={{ color: '#dc3545', fontSize: '12px', textAlign: 'center' }}>{error}</div>
         ) : (
-          <div style={{ width: '100%', height: '100%' }} dangerouslySetInnerHTML={{ __html: catSvg }} />
+          <div
+            className="kitty-svg-container"
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'hidden',
+            }}
+            dangerouslySetInnerHTML={{ __html: catSvg }}
+          />
         )}
       </div>
 
