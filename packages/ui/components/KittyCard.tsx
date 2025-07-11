@@ -95,8 +95,10 @@ export const KittyCard: React.FC<KittyCardProps> = ({ kitty, onTransfer, onSetPr
         transition: 'transform 0.2s, box-shadow 0.2s',
         cursor: 'pointer',
         width: '100%',
-        maxWidth: '432px', // Increased to accommodate 400px image + 32px padding (16px * 2)
+        minWidth: '280px', // Minimum width to ensure cards don't get too small
         margin: '0 auto',
+        display: 'flex',
+        flexDirection: 'column',
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = 'translateY(-4px)';
@@ -110,8 +112,8 @@ export const KittyCard: React.FC<KittyCardProps> = ({ kitty, onTransfer, onSetPr
       {/* Kitty Image */}
       <div
         style={{
-          width: '400px', // Full width for 400px SVG - no scaling
-          height: '500px', // Full height for 500px SVG - no scaling
+          width: '100%', // Use full available width of the card
+          aspectRatio: '4/5', // Maintain 400:500 aspect ratio
           backgroundColor: '#f8f9fa',
           borderRadius: '8px',
           display: 'flex',
@@ -120,7 +122,7 @@ export const KittyCard: React.FC<KittyCardProps> = ({ kitty, onTransfer, onSetPr
           marginBottom: '12px',
           border: '2px solid #e9ecef',
           position: 'relative',
-          margin: '0 auto', // Center the fixed-size container
+          overflow: 'hidden', // Ensure content doesn't overflow
         }}
       >
         {isLoading ? (
@@ -138,8 +140,23 @@ export const KittyCard: React.FC<KittyCardProps> = ({ kitty, onTransfer, onSetPr
               justifyContent: 'center',
               overflow: 'hidden',
             }}
-            dangerouslySetInnerHTML={{ __html: catSvg }}
-          />
+          >
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              dangerouslySetInnerHTML={{
+                __html: catSvg.replace(
+                  '<svg',
+                  '<svg style="width: 100%; height: 100%; max-width: 100%; max-height: 100%; object-fit: contain;"',
+                ),
+              }}
+            />
+          </div>
         )}
       </div>
 

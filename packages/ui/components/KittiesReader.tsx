@@ -371,9 +371,10 @@ export const KittiesReader: React.FC<KittiesReaderProps> = ({ contractAddress, p
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: '20px',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            gap: '24px',
             padding: '0',
+            width: '100%',
           }}
         >
           {myKitties.map((kitty) => (

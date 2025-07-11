@@ -75,7 +75,7 @@ const KittiesAppContent: React.FC<{ logger: Logger }> = () => {
   ]);
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
+    <Box sx={{ minHeight: 'auto', backgroundColor: '#f5f5f5' }}>
       {/* Wallet Widget - positioned at top right */}
       <Box sx={{ position: 'fixed', top: 16, right: 16, zIndex: 1000 }}>{walletState.widget}</Box>
 
@@ -92,7 +92,7 @@ const KittiesAppContent: React.FC<{ logger: Logger }> = () => {
       </Box>
 
       {/* Main Content */}
-      <Container maxWidth={false} sx={{ maxWidth: '95%', py: 3 }}>
+      <Container maxWidth={false} sx={{ maxWidth: '100%', py: 1, px: 2 }}>
         {walletState.isConnected ? (
           <Box sx={{ width: '100%' }}>
             {providersLoading ? (
@@ -102,32 +102,16 @@ const KittiesAppContent: React.FC<{ logger: Logger }> = () => {
                 </Typography>
               </Paper>
             ) : kittiesProviders ? (
-              <>
-                {/* Debug info */}
-                <Paper elevation={1} sx={{ p: 2, mb: 2, backgroundColor: '#f8f9fa' }}>
-                  <Typography variant="h6" gutterBottom>
-                    Debug Info:
-                  </Typography>
-                  <Typography variant="body2">Address: {walletState.address}</Typography>
-                  <Typography variant="body2">CoinPublicKey: {walletState.walletAPI?.coinPublicKey}</Typography>
-                  {walletState.walletAPI?.coinPublicKey && (
-                    <Typography variant="body2">
-                      CoinPublicKey (hex):{' '}
-                      {parseCoinPublicKeyToHex(walletState.walletAPI.coinPublicKey, getZswapNetworkId())}
-                    </Typography>
-                  )}
-                </Paper>
-                <KittiesReaderApplication
-                  providers={kittiesProviders}
-                  walletPublicKey={
-                    walletState.walletAPI?.coinPublicKey
-                      ? parseCoinPublicKeyToHex(walletState.walletAPI.coinPublicKey, getZswapNetworkId())
-                      : undefined
-                  }
-                />
-              </>
+              <KittiesReaderApplication
+                providers={kittiesProviders}
+                walletPublicKey={
+                  walletState.walletAPI?.coinPublicKey
+                    ? parseCoinPublicKeyToHex(walletState.walletAPI.coinPublicKey, getZswapNetworkId())
+                    : undefined
+                }
+              />
             ) : (
-              <Paper elevation={2} sx={{ p: 4, textAlign: 'center' }}>
+              <Paper elevation={3} sx={{ p: 4, textAlign: 'center' }}>
                 <Typography variant="h6" color="error">
                   Failed to initialize providers. Please try reconnecting your wallet.
                 </Typography>
@@ -135,7 +119,7 @@ const KittiesAppContent: React.FC<{ logger: Logger }> = () => {
             )}
           </Box>
         ) : (
-          <Paper elevation={3} sx={{ p: 4, textAlign: 'center', maxWidth: 600, mx: 'auto' }}>
+          <Paper elevation={3} sx={{ p: 4, textAlign: 'center', maxWidth: 800, mx: 'auto' }}>
             <Typography variant="h4" gutterBottom sx={{ color: '#333' }}>
               🐱 Welcome to Midnight Kitties
             </Typography>
@@ -147,6 +131,19 @@ const KittiesAppContent: React.FC<{ logger: Logger }> = () => {
           </Paper>
         )}
       </Container>
+      {/* Debug info */}
+      <Paper elevation={1} sx={{ p: 1, mb: 1, backgroundColor: '#f8f9fa' }}>
+        <Typography variant="h6" gutterBottom>
+          Debug Info:
+        </Typography>
+        <Typography variant="body2">Address: {walletState.address}</Typography>
+        <Typography variant="body2">CoinPublicKey: {walletState.walletAPI?.coinPublicKey}</Typography>
+        {walletState.walletAPI?.coinPublicKey && (
+          <Typography variant="body2">
+            CoinPublicKey (hex): {parseCoinPublicKeyToHex(walletState.walletAPI.coinPublicKey, getZswapNetworkId())}
+          </Typography>
+        )}
+      </Paper>
     </Box>
   );
 };
