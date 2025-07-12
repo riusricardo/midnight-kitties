@@ -12,6 +12,28 @@
 
 </div>
 
+## Table of Contents
+
+- [Project Overview](#project-overview)
+- [Key Features](#key-features)
+- [Technical Architecture](#technical-architecture)
+- [Project Structure & Components](#project-structure--components)
+- [Getting Started](#-getting-started)
+- [Compact Language & Smart Contract](#compact-language--smart-contract)
+- [NFT Module Integration](#nft-module-integration)
+- [Development & Testing](#-development--testing)
+- [Why This Project Matters](#why-this-project-matters)
+- [Documentation](#documentation)
+- [Documentation & Resources](#documentation--resources)
+- [Contributing](#contributing)
+- [License](#-license)
+
+### Documentation & Guides
+
+- [Contract Guide](packages/contracts/kitties/README.md)
+- [API Reference](packages/api/kitties/README.md)
+- [CLI Usage Guide](packages/cli/kitties/README.md)
+
 ## Project Overview
 
 **Midnight Kitties** is a decentralized application that demonstrates the capabilities of the Midnight blockchain ecosystem. This project serves as a showcase of the **Compact programming language**, showing how smart contracts can be built using Midnight's innovative technology stack.
@@ -51,15 +73,6 @@ This project shows how different components work together in the Midnight ecosys
              │ • Browser/Node.js   │    │ • Marketplace Logic │
              └─────────────────────┘    └─────────────────────┘
 ```
-
-### External NFT Module Integration
-
-This project demonstrates how to integrate external NFT modules from the [`midnight-contracts`](https://github.com/riusricardo/midnight-contracts) repository. The smart contract imports and extends NFT functionality, showing:
-
-- **Modular Design** - Using pre-built, reusable NFT components
-- **Standard Operations** - Full ERC-721-compatible interface through external modules  
-- **Code Reuse** - Building on existing implementations rather than starting from scratch
-- **Custom Extensions** - Adding CryptoKitties-specific features on top of standard NFT operations
 
 ## Project Structure & Components
 
@@ -143,9 +156,20 @@ yarn kitties-cli-remote-ps
 
 This project is a practical exploration of the **Compact programming language**. The smart contract demonstrates how to build NFT functionality while integrating external modules.
 
+## NFT Module Integration
+
 ### Smart Contract Architecture
 
-The [`kitties.compact`](packages/contracts/kitties/src/kitties.compact) contract is built using external NFT modules from [`midnight-contracts`](https://github.com/riusricardo/midnight-contracts):
+This project demonstrates how to work with external NFT modules from the [`midnight-contracts`](https://github.com/riusricardo/midnight-contracts) repository:
+
+### What This Approach Provides:
+- **Time Saving** - No need to implement standard NFT functionality from scratch
+- **Reliability** - Uses tested NFT implementations as a foundation
+- **Modularity** - Clean separation between standard and custom functionality  
+- **Learning** - Shows how to build on existing Midnight infrastructure
+
+### Integration Benefits:
+The external NFT module handles all the standard ERC-721 operations (balanceOf, ownerOf, approve, etc.), while our contract focuses on the CryptoKitties-specific logic like breeding, marketplace, and genetic systems. This demonstrates a practical approach to smart contract development where you can focus on your unique features rather than reimplementing common patterns.
 
 **1. External NFT Module Import**
 ```compact
@@ -190,7 +214,7 @@ export ledger buyOffers: Map<Uint<64>, Map<ZswapCoinPublicKey, Offer>>; // Marke
 
 ### Available Operations
 
-**NFT Standard Operations** (from external module):
+**NFT Standard Operations From NFT Module** (from external module):
 - `balanceOf(owner)` - Get token count for an address
 - `ownerOf(tokenId)` - Get owner of a specific kitty
 - `approve(to, tokenId)` - Approve transfer of a kitty
@@ -218,19 +242,6 @@ The contract includes a simple breeding mechanism:
 - Basic genetic inheritance simulates trait passing
 
 This demonstrates how Compact can handle complex logic while maintaining integration with external modules.
-
-## NFT Module Integration
-
-This project demonstrates how to work with external NFT modules from the [`midnight-contracts`](https://github.com/riusricardo/midnight-contracts) repository:
-
-### What This Approach Provides:
-- **Time Saving** - No need to implement standard NFT functionality from scratch
-- **Reliability** - Uses tested NFT implementations as a foundation
-- **Modularity** - Clean separation between standard and custom functionality  
-- **Learning** - Shows how to build on existing Midnight infrastructure
-
-### Integration Benefits:
-The external NFT module handles all the standard ERC-721 operations (balanceOf, ownerOf, approve, etc.), while our contract focuses on the CryptoKitties-specific logic like breeding, marketplace, and genetic systems. This demonstrates a practical approach to smart contract development where you can focus on your unique features rather than reimplementing common patterns.
 
 ## 🧪 Development & Testing
 

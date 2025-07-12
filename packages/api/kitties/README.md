@@ -21,12 +21,6 @@ The Kitties API provides a unified interface for interacting with the CryptoKitt
 - [Data Types](#data-types)
 - [Provider Configuration](#provider-configuration)
 
-### Development & Troubleshooting
-- [Error Handling](#error-handling)
-- [State Observation](#state-observation)
-- [Testing](#testing)
-- [Environment Differences](#environment-differences)
-
 ### Configuration & Setup
 - [Package Configuration & Dependencies](#package-configuration--dependencies)
   - [Package.json Export Structure](#packagejson-export-structure)
@@ -35,6 +29,13 @@ The Kitties API provides a unified interface for interacting with the CryptoKitt
   - [Preventing Dependency Leaks](#preventing-dependency-leaks)
   - [Resolution Path Best Practices](#resolution-path-best-practices)
   - [Debugging Configuration Issues](#debugging-configuration-issues)
+
+### Development & Troubleshooting
+- [Error Handling](#error-handling)
+- [State Observation](#state-observation)
+- [Testing](#testing)
+- [Environment Differences](#environment-differences)
+
 
 ### Additional Resources
 - [Architecture Documentation](#architecture-documentation)
