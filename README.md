@@ -31,25 +31,25 @@ The application implements a CryptoKitties-inspired NFT system with breeding mec
 This project shows how different components work together in the Midnight ecosystem:
 
 ```
-  ┌─────────────────────┐    ┌─────────────────────┐    ┌─────────────────────┐
-  │    Web Frontend     │    │    CLI Interface    │    │   Smart Contract    │
-  │                     │    │                     │    │                     │
-  │ • React + Material  │    │ • Interactive Menu  │    │ • Compact Language  │
-  │ • Wallet Connect    │◄──►│ • Contract Deploy   │◄──►│ • NFT Integration   │
-  │ • Real-time State   │    │ • Breeding Tools    │    │ • Breeding Logic    │
-  │ • Gallery View      │    │ • Market Operations │    │ • Marketplace Logic │
-  └─────────────────────┘    └─────────────────────┘    └─────────────────────┘
-           │                          │                          │
-           └──────────────────────────┼──────────────────────────┘
-                                      │
-                           ┌─────────────────────┐
-                           │   Unified API       │
-                           │                     │
-                           │ • Ledger Integration│
-                           │ • State Management  │
-                           │ • Type Safety       │
-                           │ • Browser/Node.js   │
-                           └─────────────────────┘
+  ┌─────────────────────┐    ┌─────────────────────┐
+  │    Web Frontend     │    │    CLI Interface    │
+  │                     │    │                     │
+  │ • React + Material  │    │ • Interactive Menu  │
+  │ • Wallet Connect    │    │ • Contract Deploy   │
+  │ • Real-time State   │    │ • Breeding Tools    │
+  │ • Gallery View      │    │ • Market Operations │
+  └─────────────────────┘    └─────────────────────┘
+           │                          │
+           └──────────────────────────┘
+                        │
+             ┌─────────────────────┐    ┌─────────────────────┐
+             │   Unified API       │◄──►│   Smart Contract    │
+             │                     │    │                     │
+             │ • Ledger Integration│    │ • Compact Language  │
+             │ • State Management  │    │ • NFT Integration   │
+             │ • Type Safety       │    │ • Breeding Logic    │
+             │ • Browser/Node.js   │    │ • Marketplace Logic │
+             └─────────────────────┘    └─────────────────────┘
 ```
 
 ### External NFT Module Integration

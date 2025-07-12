@@ -83,12 +83,11 @@ Deploy a new kitties contract.
 
 **Parameters:**
 - `providers: KittiesProviders` - Configured Midnight providers
-- `options: { value?: number }` - Deployment options
 
 **Returns:** `Promise<KittiesAPI>`
 
 ```typescript
-const kittiesApi = await KittiesAPI.deploy(providers, { value: 0 });
+const kittiesApi = await KittiesAPI.deploy(providers, {});
 ```
 
 #### `KittiesAPI.connect(providers, contractAddress)`
@@ -101,7 +100,7 @@ Connect to an existing contract.
 **Returns:** `Promise<KittiesAPI>`
 
 ```typescript
-const kittiesApi = await KittiesAPI.connect(providers, "0x123...");
+const kittiesApi = await KittiesAPI.connect(providers, "123...");
 ```
 
 ### Kitty Operations
