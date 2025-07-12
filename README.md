@@ -72,6 +72,16 @@ This project shows how different components work together in the Midnight ecosys
              │ • Type Safety       │    │ • Breeding Logic    │
              │ • Browser/Node.js   │    │ • Marketplace Logic │
              └─────────────────────┘    └─────────────────────┘
+                       │                          ▲
+          ┌────────────────────────────┐          │
+          │       Proof Server         │──────────┘
+          │ (Executes smart contract   │
+          │  circuits)                 │
+          └────────────────────────────┘
+                       │
+          ┌────────────────────────────┐
+          │      Midnight Network      │
+          └────────────────────────────┘
 ```
 
 ## Project Structure & Components

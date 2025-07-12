@@ -94,13 +94,12 @@ constructor() {
 // Kitty DNA and Gender Generation
 // =====================
 
-// Generates pseudo-random DNA for a kitty using the minter's public key, contract address,
-// and a random number.
-circuit generateDNA(minter: ZswapCoinPublicKey): Field {
-  // In a real implementation, this would use secure randomness.
-  // Here, we use a hash of the minter, contract address, and a witness random number.
-  const payload = [minter.bytes, kernel.self().bytes, createRandomNumber()];
-  return transientHash<[Bytes<32>, Bytes<32>, Bytes<32>]>(payload);
+// Generates unique DNA for a kitty.
+circuit generateDNA(minter: ZswapCoinPublicKey, kittyId: Uint<64>): Field {
+  // In a production implementation, this would use a more secure randomness.
+  // Here, we use a hash of the KittyId, minter, contract address, and a witness random number.
+  const payload = [kittyId, minter.bytes, kernel.self().bytes,  createRandomNumber()];
+  return transientHash<[Uint<64>, Bytes<32>, Bytes<32>, Bytes<32>]>(payload);
 }
 
 // Determines the gender of a new kitty based on the genderSelector flag.
@@ -120,8 +119,8 @@ circuit generateGender(): Gender {
 // Creates a new unique kitty and mints the corresponding NFT.
 export circuit createKitty(): [] {
   const sender = ownPublicKey();
-  const kittyDna = generateDNA(sender);
   const kittyId = (allKittiesCount.read() + 1) as Uint<64>;
+  const kittyDna = generateDNA(sender, kittyId);
 
   // Ensure the kitty does not already exist.
   assert(!tokenExists(kittyId), "Kitty already exists");
@@ -355,7 +354,7 @@ export circuit breedKitty(kittyId1: Uint<64>, kittyId2: Uint<64>): [] {
   const kitty2 = kitties.lookup(disclose(kittyId2));
 
   // Combine DNA from both parents using the breeding seed.
-  const combinedDNA = breedDNA(kitty1.dna, kitty2.dna, breedingSeed);
+  const combinedDNA = breedDNA(kitty1.dna, kitty2.dna, breedingSeed, newKittyId);
 
   // Determine the generation (max of parents + 1).
   const newGeneration = (getMaxGeneration(kitty1.generation, kitty2.generation) + 1) as Uint<32>;
@@ -409,11 +408,11 @@ export circuit getOffer(kittyId: Uint<64>, from: ZswapCoinPublicKey): Offer {
 
 // Helper function to combine DNA from two parent kitties using a random seed.
 // This is a simplified approach: hashes both DNAs and the seed together.
-circuit breedDNA(dna1: Field, dna2: Field, seed: Bytes<32>): Field {
+circuit breedDNA(dna1: Field, dna2: Field, seed: Bytes<32>, newKittyId: Uint<64>): Field {
   // Create payload for final DNA combination.
   // In a simplified approach, we'll hash the combination of both DNAs with the seed.
-  const combinedPayload = [dna1, dna2, seed];
-  return transientHash<[Field, Field, Bytes<32>]>(combinedPayload);
+  const combinedPayload = [dna1, dna2, seed, newKittyId];
+  return transientHash<[Field, Field, Bytes<32>, Uint<64>]>(combinedPayload);
 }
 
 // Helper function to get the maximum of two generation values.
